@@ -1,0 +1,35 @@
+{
+  "ok": true,
+  "embeddings": {
+    "passed": true,
+    "model": "gte-small",
+    "dimensions": 384,
+    "invocations": 3,
+    "generation_ms": 361,
+    "query_ms": 58,
+    "ranking": [
+      {
+        "candidate": "matching",
+        "similarity": 0.918357923324481
+      },
+      {
+        "candidate": "unrelated",
+        "similarity": 0.838503847211372
+      }
+    ]
+  },
+  "image": {
+    "passed": true,
+    "metadata_removed": true,
+    "invalid_file_rejected": true,
+    "input_bytes": 303,
+    "output_bytes": 894,
+    "width": 1600,
+    "height": 38,
+    "processing_ms": 57
+  },
+  "total_ms": 480,
+  "session_refresh_passed": true,
+  "anonymous_rejected": true,
+  "anonymous_status": 401
+}

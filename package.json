@@ -1,0 +1,39 @@
+{
+  "name": "lost-and-found-scaffold",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "check:edge": "deno check --config supabase/functions/deno.json --frozen supabase/functions/report-photo/index.ts supabase/functions/tests/image_test.ts supabase/functions/tests/report_photo_test.ts",
+    "test": "npm run test:db && npm run test:edge",
+    "test:db": "node --test tests/*.test.mjs",
+    "test:edge": "deno test --config supabase/functions/deno.json --frozen supabase/functions/tests/",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "@tanstack/react-query": "^5.107.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "@electric-sql/pglite-pgvector": "0.0.17",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "deno": "2.9.6",
+    "oxlint": "^1.90.0",
+    "supabase": "3.1.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6"
+  }
+}
