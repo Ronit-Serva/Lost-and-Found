@@ -1,6 +1,6 @@
 # Lost & Found — product constitution
 
-Updated: 2026-11-18. Status: Phase 2 complete. Phase 3 is next. See [the Phase 2 handoff](docs/handoffs/phase-2.md).
+Updated: 2026-11-19. Status: Phase 3 in progress. See the [Phase 3 checkpoint](../docs/handoffs/phase-3.md).
 
 ## Authority and maintenance
 
@@ -13,13 +13,13 @@ This file, [techstack.md](techstack.md), and [roadmap.md](roadmap.md) are the pr
 
 ## Phase completion and handoff requirement
 
-Before moving from any phase to the next, document the completed implementation in `docs/handoffs/phase-N.md`, using [the handoff template](docs/handoffs/TEMPLATE.md). This is a required deliverable for every phase, including the final release phase. A phase is complete only when its observable exit checks pass and its implementation handoff is accurate and complete.
+Before moving from any phase to the next, document the completed implementation in `docs/handoffs/phase-N.md`, using [the handoff template](../docs/handoffs/TEMPLATE.md). This is a required deliverable for every phase, including the final release phase. A phase is complete only when its observable exit checks pass and its implementation handoff is accurate and complete.
 
 Each handoff must make the next session independent of chat history: explain actual behavior, decisions, files/components, database/API/security contracts, local and deployed configuration, exact run/verification commands, evidence, known limitations, and the next concrete task. Clearly distinguish implemented, tested, deployed, planned, and unverified work. Include names and nonsecret identifiers only; never credentials or private user data.
 
 When work stops mid-phase or changes agents, update the same phase document as an in-progress checkpoint without claiming completion. Reconcile the handoff, roadmap status, and affected constitution requirements before proceeding. Handoffs are implementation/evidence records subordinate to these three constitution files; they do not silently redefine product behavior or add an approval requirement.
 
-New sessions must read the constitution and [handoff index](docs/handoffs/README.md), then the latest completed phase and any current checkpoint. The latest completed implementation is recorded in the [Phase 2 handoff](docs/handoffs/phase-2.md).
+New sessions must read the constitution and [handoff index](../docs/handoffs/README.md), then the latest completed phase and any current checkpoint. The latest completed implementation is recorded in the [Phase 2 handoff](../docs/handoffs/phase-2.md).
 
 ## Purpose and success
 
@@ -68,6 +68,8 @@ For general found reports, prompt the finder to withhold one distinguishing feat
 | Claim | Pending → accepted or rejected by finder; pending/accepted → withdrawn by claimant; accepted → cancelled by finder or completed on return. |
 
 Resolved/returned/withdrawn reports stay in owners' history and disappear from default discovery. Withdrawal is a status change, not destructive deletion. Reopening, disputed ownership, and permanent deletion UX are deferred.
+
+When a finder withdraws an open found report, reject its pending claims with reason "report withdrawn" and notify those claimants in the same transaction.
 
 ### Active-report limits
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
+import { ClaimForm, ClaimHistory } from './Claims.tsx'
 import { supabase } from './lib/supabase.ts'
 
 type Section = 'general' | 'id_card' | 'room_key'
@@ -39,7 +40,8 @@ export function SignInScreen({ configured, error, loading, onSignIn }: { configu
 function App({ email, onSignOut }: AppProps) {
   const [section, setSection] = useState<Section>('general')
   const [kind, setKind] = useState<ReportKind>('lost')
-  const [view, setView] = useState<'discover' | 'mine'>('discover')
+  const [view, setView] = useState<'discover' | 'mine' | 'claims'>('discover')
+  const [claiming, setClaiming] = useState<Report | null>(null)
   const [query, setQuery] = useState('')
   const [reports, setReports] = useState<Report[]>([])
   const [mine, setMine] = useState<Report[]>([])
@@ -149,11 +151,10 @@ function App({ email, onSignOut }: AppProps) {
         <nav className="primary-nav" aria-label="Main navigation">
           <button className={`nav-link ${view === 'discover' ? 'active' : ''}`} onClick={() => setView('discover')}><span>⌕</span> Discover</button>
           <button className={`nav-link ${view === 'mine' ? 'active' : ''}`} onClick={() => setView('mine')}><span>▤</span> My listings</button>
-          <span className="nav-link muted-nav"><span>◇</span> My claims</span>
+          <button className={`nav-link ${view === 'claims' ? 'active' : ''}`} aria-label="My claims" onClick={() => setView('claims')}><span aria-hidden="true">◇</span> My claims</button>
           <span className="nav-link muted-nav"><span>♧</span> Notifications</span>
         </nav>
         <div className="sidebar-bottom">
-          <div className="help-card"><span className="help-icon">?</span><div><strong>Need a hand?</strong><p>Claims arrive in Phase 3</p></div><span className="arrow">↗</span></div>
           <div className="profile"><div className="avatar">{email.slice(0, 1).toUpperCase()}</div><div className="profile-text"><strong>Ashoka member</strong><span>{email}</span></div><button className="more" onClick={onSignOut}>↗</button></div>
         </div>
       </aside>
@@ -166,9 +167,21 @@ function App({ email, onSignOut }: AppProps) {
             <section className="search-card" aria-label="Find an item"><label className="search-input"><span>⌕</span><input type="search" value={query} onChange={(event) => { setLoading(true); setError(''); setQuery(event.target.value) }} placeholder={section === 'general' ? 'Search item, category, or location' : section === 'id_card' ? 'Search name, roll number, or ID number' : 'Search room number or holder name'} aria-label="Search reports" /></label><div className="search-controls"><div className="segmented" role="group" aria-label="Report type">{(['lost', 'found'] as const).map((option) => <button key={option} className={kind === option ? 'selected' : ''} onClick={() => { setLoading(true); setError(''); setKind(option) }}>{option === 'lost' ? 'Lost' : 'Found'}</button>)}</div><button className="report-button" onClick={startCreate}>＋ <span>Report an item</span></button></div></section>
             <section className="directory-section"><div className="section-heading"><div><div className="eyebrow small">THE CAMPUS BOARD</div><h2>Browse {kind} items</h2></div></div>
               <div className="category-tabs" role="tablist" aria-label="Item category">{(Object.keys(sectionLabels) as Section[]).map((item) => <button role="tab" aria-selected={section === item} key={item} className={section === item ? 'category-tab active-tab' : 'category-tab'} onClick={() => { setLoading(true); setError(''); setSection(item) }}>{sectionLabels[item]}</button>)}</div>
-              {loading ? <p role="status">Loading reports…</p> : error ? <div className="auth-error" role="alert">{error} <button className="outline-button" onClick={() => { setLoading(true); void reload() }}>Retry</button></div> : reports.length ? <div className="report-grid">{reports.map((report) => <ReportCard key={report.id} report={report} />)}</div> : <div className="empty-state"><div className="empty-illustration"><span className="empty-halo" /><span className="empty-box">{section === 'id_card' ? '▤' : section === 'room_key' ? '⌑' : '⌕'}</span><span className="sparkle sparkle-a">✳</span><span className="sparkle sparkle-b">✦</span></div><h3>Your campus board starts here</h3><p>No open {kind} reports in {sectionLabels[section].toLowerCase()} yet.</p><button className="outline-button" onClick={startCreate}>＋ Post a {kind} item</button></div>}
+              {loading ? <p role="status">Loading reports…</p> : error ? <div className="auth-error" role="alert">{error} <button className="outline-button" onClick={() => { setLoading(true); void reload() }}>Retry</button></div> : reports.length ? <div className="report-grid">{reports.map((report) => <ReportCard key={report.id} report={report} onClaim={report.kind === 'found' ? () => setClaiming(report) : undefined} />)}</div> : <div className="empty-state"><div className="empty-illustration"><span className="empty-halo" /><span className="empty-box">{section === 'id_card' ? '▤' : section === 'room_key' ? '⌑' : '⌕'}</span><span className="sparkle sparkle-a">✳</span><span className="sparkle sparkle-b">✦</span></div><h3>Your campus board starts here</h3><p>No open {kind} reports in {sectionLabels[section].toLowerCase()} yet.</p><button className="outline-button" onClick={startCreate}>＋ Post a {kind} item</button></div>}
             </section>
-          </> : <section className="directory-section"><div className="eyebrow small">YOUR DASHBOARD</div><h1>My listings</h1><div className="quota-row"><span>Lost: {quota.lost}/3</span><span>Found: {quota.found}/3</span><button className="report-button" onClick={startCreate}>＋ Report an item</button></div>{loading ? <p role="status">Loading your reports…</p> : mine.length ? <div className="report-grid">{mine.map((report) => <ReportCard key={report.id} report={report} owner onEdit={() => startEdit(report)} onClose={() => void closeReport(report)} />)}</div> : <div className="empty-state"><h3>No listings yet</h3><p>Reports you create will appear here.</p><button className="outline-button" onClick={startCreate}>＋ Report an item</button></div>}</section>}
+          </> : view === 'claims' ? <ClaimHistory /> : <section className="directory-section"><div className="eyebrow small">YOUR DASHBOARD</div><h1>My listings</h1><div className="quota-row"><span>Lost: {quota.lost}/3</span><span>Found: {quota.found}/3</span><button className="report-button" onClick={startCreate}>＋ Report an item</button></div>{loading ? <p role="status">Loading your reports…</p> : mine.length ? <div className="report-grid">{mine.map((report) => <ReportCard key={report.id} report={report} owner onEdit={() => startEdit(report)} onClose={() => void closeReport(report)} />)}</div> : <div className="empty-state"><h3>No listings yet</h3><p>Reports you create will appear here.</p><button className="outline-button" onClick={startCreate}>＋ Report an item</button></div>}</section>}
+          {claiming && (
+            <ClaimForm
+              report={claiming}
+              lostReports={mine.filter((report) => report.kind === 'lost')}
+              onCancel={() => setClaiming(null)}
+              onSubmitted={() => {
+                setClaiming(null)
+                setNotice('Claim sent to the finder.')
+                setView('claims')
+              }}
+            />
+          )}
           {notice && <p role="status" className="success-note">{notice}</p>}
           {error && view === 'mine' && <div className="auth-error" role="alert">{error}</div>}
           {formOpen && <div className="form-backdrop"><section className="report-form-panel" aria-labelledby="form-title"><div className="section-heading"><div><div className="eyebrow small">CAMPUS REPORT</div><h2 id="form-title">{editing ? 'Edit report' : 'Post an item'}</h2></div><button className="signout-button" onClick={() => setFormOpen(false)}>Close</button></div>
@@ -198,9 +211,9 @@ function App({ email, onSignOut }: AppProps) {
   )
 }
 
-function ReportCard({ report, owner = false, onEdit, onClose }: { report: Report; owner?: boolean; onEdit?: () => void; onClose?: () => void }) {
+function ReportCard({ report, owner = false, onEdit, onClose, onClaim }: { report: Report; owner?: boolean; onEdit?: () => void; onClose?: () => void; onClaim?: () => void }) {
   const [showPhotos, setShowPhotos] = useState(false)
-  return <article className="report-card"><div className="report-card-meta"><span>{sectionLabels[report.section]}</span><span className="report-status">{report.status}</span></div><h3>{report.title}</h3>{report.section === 'general' ? <><p>{report.description}</p><p>{report.location}{report.occurred_on ? ` · ${report.occurred_on}` : ''}</p><button className="photo-toggle" onClick={() => setShowPhotos((shown) => !shown)}>{showPhotos ? 'Hide photos' : 'View photos'}</button>{showPhotos && <ReportPhotos report={report} owner={owner && report.status === 'open'} />}</> : report.section === 'id_card' ? <p>{[report.cardholder_name, report.roll_number && `Roll ${report.roll_number}`, report.id_number && `ID ${report.id_number}`].filter(Boolean).join(' · ')}</p> : <p>{report.room_number} · {report.holder_name}</p>}{owner && report.status === 'open' && <div className="report-card-actions"><button className="outline-button" onClick={onEdit}>Edit</button><button className="outline-button" onClick={onClose}>{report.kind === 'lost' ? 'Mark resolved' : 'Withdraw'}</button></div>}</article>
+  return <article className="report-card"><div className="report-card-meta"><span>{sectionLabels[report.section]}</span><span className="report-status">{report.status}</span></div><h3>{report.title}</h3>{report.section === 'general' ? <><p>{report.description}</p><p>{report.location}{report.occurred_on ? ` · ${report.occurred_on}` : ''}</p><button className="photo-toggle" onClick={() => setShowPhotos((shown) => !shown)}>{showPhotos ? 'Hide photos' : 'View photos'}</button>{showPhotos && <ReportPhotos report={report} owner={owner && report.status === 'open'} />}</> : report.section === 'id_card' ? <p>{[report.cardholder_name, report.roll_number && `Roll ${report.roll_number}`, report.id_number && `ID ${report.id_number}`].filter(Boolean).join(' · ')}</p> : <p>{report.room_number} · {report.holder_name}</p>}{onClaim && <div className="report-card-actions"><button className="outline-button" onClick={onClaim}>Claim this item</button></div>}{owner && report.status === 'open' && <div className="report-card-actions"><button className="outline-button" onClick={onEdit}>Edit</button><button className="outline-button" onClick={onClose}>{report.kind === 'lost' ? 'Mark resolved' : 'Withdraw'}</button></div>}</article>
 }
 
 function ReportPhotos({ report, owner }: { report: Report; owner: boolean }) {

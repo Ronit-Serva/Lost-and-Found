@@ -1,6 +1,6 @@
 # Lost & Found — implementation roadmap
 
-Updated: 2026-11-18. Phases 0–2 are complete. Phase 3 is next. The live test app is https://foundry-ashoka.vercel.app. Resume from the [handoff index](docs/handoffs/README.md) and [completed Phase 2 handoff](docs/handoffs/phase-2.md).
+Updated: 2026-11-19. Phases 0–2 are complete. Phase 3 is in progress. The live test app is https://foundry-ashoka.vercel.app. Resume from the [handoff index](../docs/handoffs/README.md) and [completed Phase 2 handoff](../docs/handoffs/phase-2.md).
 
 Read [objective.md](objective.md) for requirements and [techstack.md](techstack.md) for architecture. A phase is complete only when its exit checks pass and evidence is recorded here. Never mark mock-only behavior as a working integration.
 
@@ -11,7 +11,7 @@ Read [objective.md](objective.md) for requirements and [techstack.md](techstack.
 | 0 | Product, technical, and delivery constitution | Complete | Documentation task completed |
 | 1 | Foundation and integration feasibility | Complete | 2–3 developer days |
 | 2 | Private campus reporting and dashboard | Complete | 3–4 developer days |
-| 3 | Claims, email disclosure, notifications, and return | Not started | 4–6 developer days |
+| 3 | Claims, email disclosure, notifications, and return | In progress | 4–6 developer days |
 | 4 | Category-specific matching | Not started | 2–4 developer days |
 | 5 | Release validation and campus pilot | Not started | 2–3 developer days |
 
@@ -19,7 +19,7 @@ Estimate: 13–20 focused developer days, assuming stack familiarity and availab
 
 ## Phase 0 — document the contract
 
-Completed deliverables: refined objective.md, selected techstack.md, and this phased roadmap. Implementation record: [Phase 0 handoff](docs/handoffs/phase-0.md).
+Completed deliverables: refined objective.md, selected techstack.md, and this phased roadmap. Implementation record: [Phase 0 handoff](../docs/handoffs/phase-0.md).
 
 Exit check: stakeholder decisions preserved, implementation defaults distinguished from assumptions, General Items semantic matching and specialized string matching remain MVP scope, and each requirement maps to validation below.
 
@@ -27,7 +27,7 @@ Evidence: original stakeholder notes reviewed; documents created and cross-check
 
 ## Phase 1 — foundation and feasibility
 
-Complete on 2026-11-14. Required implementation record: [Phase 1 handoff](docs/handoffs/phase-1.md).
+Complete on 2026-11-14. Required implementation record: [Phase 1 handoff](../docs/handoffs/phase-1.md).
 
 Progress (2026-11-14): React/TypeScript/Vite scaffold, responsive dashboard preview, Google PKCE login, membership helper/signup migration, environment configuration, and Git repository are in place. Report/claim/notification behavior remains a preview; no listing persistence is claimed.
 
@@ -65,7 +65,7 @@ If real credentials are unavailable, scaffold and local tests may proceed; Phase
 
 ## Phase 2 — listings and personalized discovery
 
-Required handoff: `docs/handoffs/phase-2.md`. Create it from [the template](docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
+Required handoff: `docs/handoffs/phase-2.md`. Create it from [the template](../docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
 
 Goal: eligible members can report and browse belongings privately. Covers O2 and report portions of O3.
 
@@ -79,13 +79,15 @@ Exit: a member can publish and edit lost/found reports; another eligible member 
 
 Implementation checkpoint (2026-11-14): reconciled hosted migration history for versions `20261114000100` and `20261114000200`, then applied migrations `20261114000300`–`20261114000700`. A privacy review removed reporter UUIDs from photo object paths before any real photos were stored. The hosted database has typed reports, private report/photo metadata tables, server-enforced per-owner quota locks, safe JSONB listing RPCs, section-specific constraints, a private `report-photos` bucket, and three Storage policies. Deployed authenticated `report-photo` Edge Function and wired create/edit/close, directory, quotas, photo upload/read/remove in the app. Local PGlite report/photo checks (8) and Deno image/handler checks (7) pass; TypeScript production build passes. Remote inventory confirms migration versions 00100–00700, report/photo/storage-object counts are zero, private bucket, three Storage policies, no direct table SELECT grants, and no Phase 1 probe table/RPC/function. An anonymous Edge invocation returned 401.
 
-Completion (2026-11-18): the project owner confirmed that the Phase 2 exit checks passed after the Vercel and Supabase photo upload fix. The [Phase 2 handoff](docs/handoffs/phase-2.md) records the owner confirmation and the available automated and hosted checks. Detailed walkthrough and concurrency results were not supplied.
+Completion (2026-11-18): the project owner confirmed that the Phase 2 exit checks passed after the Vercel and Supabase photo upload fix. The [Phase 2 handoff](../docs/handoffs/phase-2.md) records the owner confirmation and the available automated and hosted checks. Detailed walkthrough and concurrency results were not supplied.
 
 Evidence to record: migration names, relevant test commands/results, and a short report/create/edit/filter walkthrough.
 
 ## Phase 3 — claims through confirmed return
 
-Required handoff: `docs/handoffs/phase-3.md`. Create it from [the template](docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
+Status: In progress. See the [Phase 3 checkpoint](../docs/handoffs/phase-3.md).
+
+Required handoff: `docs/handoffs/phase-3.md`. Create it from [the template](../docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
 
 Goal: two members can complete the core return journey. Covers O4 and O5.
 
@@ -101,7 +103,7 @@ Evidence to record: integration and browser test results, notification transacti
 
 ## Phase 4 — category-specific matching
 
-Required handoff: `docs/handoffs/phase-4.md`. Create it from [the template](docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
+Required handoff: `docs/handoffs/phase-4.md`. Create it from [the template](../docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing.
 
 Goal: useful backend suggestions connect lost and found reports within their section. Completes O3 with semantic General Items matching and deterministic ID-card/key matching.
 
@@ -119,7 +121,7 @@ Exit: both benchmarks pass, unavailable/own reports are excluded, general embedd
 
 ## Phase 5 — release validation and pilot
 
-Required handoff: `docs/handoffs/phase-5.md`. Create it from [the template](docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing or declaring the MVP complete.
+Required handoff: `docs/handoffs/phase-5.md`. Create it from [the template](../docs/handoffs/TEMPLATE.md) when starting this phase, maintain in-progress checkpoints, and complete it with the phase-specific implementation/evidence below before advancing or declaring the MVP complete.
 
 Goal: release a usable MVP with demonstrated access boundaries and operations. Covers all O1–O5.
 
@@ -155,9 +157,9 @@ The Phase 1 account/runtime/free-plan checks are complete as recorded above. Pro
 
 ## Mandatory transition and session handoff gate
 
-1. Meet the phase's exit checks and record actual implementation, file map, data/API/security contracts, environment/deployment/migration state, verification evidence, limitations/recovery, and next tasks in its handoff. Use [the template](docs/handoffs/TEMPLATE.md); a brief progress summary alone is insufficient.
+1. Meet the phase's exit checks and record actual implementation, file map, data/API/security contracts, environment/deployment/migration state, verification evidence, limitations/recovery, and next tasks in its handoff. Use [the template](../docs/handoffs/TEMPLATE.md); a brief progress summary alone is insufficient.
 2. Cross-check paths/commands and deployed-vs-local state. Record the branch/commit or uncommitted/untracked status. Label owner-reported, agent-verified, synthetic, and pending evidence explicitly; include no secrets or private records.
-3. Reconcile objective.md, techstack.md, roadmap.md, and [the handoff index](docs/handoffs/README.md). Only then mark the phase complete and permit the next phase. No new user approval is implied by this documentation gate.
+3. Reconcile objective.md, techstack.md, roadmap.md, and [the handoff index](../docs/handoffs/README.md). Only then mark the phase complete and permit the next phase. No new user approval is implied by this documentation gate.
 4. For a pause or session/agent change before completion, save an in-progress handoff with the exact stopping point, pending work, blocker/input if any, and first action on resume. Keep the phase in progress.
 5. The incoming agent reads the constitution, latest completed handoff, and any active checkpoint before changing code. Final Phase 5 completion also requires an operational handoff, even with no subsequent phase.
 
@@ -183,4 +185,4 @@ The Phase 1 account/runtime/free-plan checks are complete as recorded above. Pro
 
 ## Next implementation action
 
-Phase 3 is next. When starting it, create its handoff from the shared template and implement claim submission, private evidence access, and duplicate and self-claim rejection. Follow the existing report lock contract. See the [Phase 2 handoff](docs/handoffs/phase-2.md).
+Phase 3 is in progress. Follow the next implementation task in the [Phase 3 checkpoint](../docs/handoffs/phase-3.md) and reuse the [Phase 2 report locking contract](../docs/handoffs/phase-2.md).

@@ -1,6 +1,6 @@
 # Lost & Found — technical constitution
 
-Updated: 2026-11-18. Status: Phase 2 reporting is complete. See [the completed Phase 2 implementation handoff](docs/handoffs/phase-2.md).
+Updated: 2026-11-19. Status: Phase 3 in progress. See the [Phase 3 checkpoint](../docs/handoffs/phase-3.md) and the [completed Phase 2 handoff](../docs/handoffs/phase-2.md).
 
 Read with [objective.md](objective.md) and [roadmap.md](roadmap.md). Product requirements govern technical decisions. Do not substitute a paid dependency or weaken access controls to bypass an integration problem.
 
@@ -130,7 +130,7 @@ Phase 1's developer-only `phase1-check` function, runner, RPCs, and private coun
 
 ## Required implementation handoff at every phase boundary
 
-Follow the phase-transition rule in objective.md and roadmap.md. Before advancing, complete `docs/handoffs/phase-N.md` with [the shared template](docs/handoffs/TEMPLATE.md), cross-check it against the code and actual deployment state, and link it from the [handoff index](docs/handoffs/README.md). Latest completed handoff: [Phase 2 implementation](docs/handoffs/phase-2.md).
+Follow the phase-transition rule in objective.md and roadmap.md. Before advancing, complete `docs/handoffs/phase-N.md` with [the shared template](../docs/handoffs/TEMPLATE.md), cross-check it against the code and actual deployment state, and link it from the [handoff index](../docs/handoffs/README.md). Latest completed handoff: [Phase 2 implementation](../docs/handoffs/phase-2.md).
 
 | Area | Technical detail the handoff must preserve |
 |---|---|

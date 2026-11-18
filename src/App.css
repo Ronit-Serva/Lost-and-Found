@@ -5,3 +5,25 @@
 .nav-link{width:100%;border:0;background:transparent;text-align:left;cursor:pointer}.muted-nav{opacity:.58}.quota-row{display:flex;align-items:center;gap:12px;margin:22px 0;color:#536d58;font-size:11px}.quota-row span{padding:8px 11px;border:1px solid #e5ebe4;border-radius:7px;background:#fff}.report-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:20px 0 38px}.report-card{min-width:0;padding:16px;border:1px solid #e7ece5;border-radius:10px;background:#fff}.report-card h3{margin:12px 0 7px;color:#354b3c;font-family:'Playfair Display',serif;font-size:17px}.report-card p{margin:5px 0;color:#77857a;font-size:11px;line-height:1.65;overflow-wrap:anywhere}.report-card-meta{display:flex;align-items:center;justify-content:space-between;color:#88968b;font-size:9px}.report-status{text-transform:capitalize;padding:4px 7px;border-radius:20px;background:#edf3ed;color:#55725b}.report-card-actions{display:flex;gap:7px;margin-top:12px}.report-card-actions .outline-button{margin:0}.success-note{padding:10px 12px;border-radius:7px;background:#edf5ed;color:#496c55;font-size:11px}.form-backdrop{position:fixed;z-index:5;inset:0;display:grid;place-items:center;overflow:auto;padding:20px;background:#1d2a2175}.report-form-panel{width:min(100%,600px);max-height:calc(100vh - 40px);overflow:auto;padding:24px;border-radius:13px;background:#fff;box-shadow:0 20px 70px #15221845}.report-form-panel form{display:grid;gap:13px;margin-top:20px}.report-form-panel label{display:grid;gap:6px;color:#53675a;font-size:11px;font-weight:600}.report-form-panel input:not([type=checkbox]),.report-form-panel textarea,.report-form-panel select{width:100%;min-height:38px;padding:9px 10px;border:1px solid #dfe7dd;border-radius:7px;background:#fff;color:#39483e;font:12px 'DM Sans',sans-serif}.report-form-panel textarea{min-height:82px;resize:vertical}.report-form-panel input:focus,.report-form-panel textarea:focus,.report-form-panel select:focus{outline:2px solid #8ea78f;outline-offset:1px}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.report-form-panel .check-label{display:flex;align-items:center;gap:8px;font-weight:500}.report-form-panel .check-label input{accent-color:#42664e}.form-guidance{margin:4px 0;color:#78877d;font-size:10px;line-height:1.7}.report-form-panel .report-button{min-height:38px;margin:4px 0 0;font-size:11px}.report-form-panel .section-heading{align-items:start}.report-form-panel .section-heading h2{font-size:22px}.report-form-panel .signout-button{padding:7px}@media(max-width:760px){.nav-link{font-size:0}.nav-link.active{font-size:0}.quota-row{flex-wrap:wrap}.quota-row .report-button{margin-left:0}.report-form-panel{padding:18px}.form-row{grid-template-columns:1fr}.report-card{padding:13px}}
 .photo-toggle{margin-top:7px;border:0;background:transparent;padding:2px 0;color:#54705a;font-size:10px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}.photo-status{font-size:10px!important}.report-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:9px}.report-photos img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#f2f4ef}.report-form-panel input[type=file]{padding:8px;background:#fff}
 .report-photo{position:relative;min-width:0}.report-photo button{position:absolute;right:5px;bottom:5px;padding:4px 6px;border:0;border-radius:4px;background:#19281fba;color:#fff;font-size:9px;cursor:pointer}
+
+.claim-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(calc(100% - 32px), 520px);
+  border: 1px solid #e7ece5;
+}
+
+.claim-dialog::backdrop { background: #1d2a2175; }
+.claim-dialog h2, .claim-card h2 { overflow-wrap: anywhere; }
+.claim-dialog .form-guidance { margin: -6px 0 0; color: #53675a; }
+.claim-dialog .auth-error { margin: 0; }
+.claim-dialog .signout-button { flex-shrink: 0; }
+.claim-list { display: grid; gap: 12px; margin: 20px 0 38px; padding: 0; list-style: none; }
+.claim-card h2 { margin: 12px 0 7px; color: #354b3c; font: 600 19px 'Playfair Display', serif; }
+.claim-reference { overflow-wrap: anywhere; }
+.claim-card details { margin-top: 12px; color: #365f49; font-size: 13px; }
+.claim-card summary { cursor: pointer; padding: 6px 0; }
+.claim-card .claim-evidence { white-space: pre-wrap; color: #39483e; font-size: 13px; }
+.claim-history .auth-error .outline-button { margin: 0 0 0 8px; }
+.claim-dialog button:focus-visible, .claim-card summary:focus-visible { outline: 2px solid #365f49; outline-offset: 2px; }

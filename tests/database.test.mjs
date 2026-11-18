@@ -1,5 +1,6 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { vector } from '@electric-sql/pglite-pgvector'
@@ -8,6 +9,7 @@ const db = new PGlite({ extensions: { vector } })
 const memberId = '11111111-1111-4111-8111-111111111111'
 const peerId = '33333333-3333-4333-8333-333333333333'
 const outsiderId = '22222222-2222-4222-8222-222222222222'
+const unrelatedId = '44444444-4444-4444-8444-444444444444'
 
 before(async () => {
   await db.exec(`
@@ -24,17 +26,29 @@ before(async () => {
     create table auth.identities (user_id uuid, provider text, identity_data jsonb);
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid$$;
   `)
-  for (const name of ['20261114000100_ashoka_auth.sql', '20261114000200_phase1_probe.sql', '20261114000300_retire_phase1_probe.sql', '20261114000400_reports.sql', '20261114000500_report_photos.sql', '20261114000600_remove_report_photo.sql', '20261114000700_hide_photo_owner_uuid.sql']) {
+  const migrations = [
+    '20261114000100_ashoka_auth.sql',
+    '20261114000200_phase1_probe.sql',
+    '20261114000300_retire_phase1_probe.sql',
+    '20261114000400_reports.sql',
+    '20261114000500_report_photos.sql',
+    '20261114000600_remove_report_photo.sql',
+    '20261114000700_hide_photo_owner_uuid.sql',
+    '20261119000100_claim_submission.sql',
+  ]
+  for (const name of migrations) {
     await db.exec(await readFile(new URL(`../supabase/migrations/${name}`, import.meta.url), 'utf8'))
   }
   await db.query(`insert into auth.users values
     ($1, 'student@ashoka.edu.in', now(), '{"provider":"google"}', '{}'),
     ($2, 'peer@ashoka.edu.in', now(), '{"provider":"google"}', '{}'),
-    ($3, 'outsider@gmail.com', now(), '{"provider":"google"}', '{"eligible":true,"hd":"ashoka.edu.in"}')`, [memberId, peerId, outsiderId])
+    ($3, 'outsider@gmail.com', now(), '{"provider":"google"}', '{"eligible":true,"hd":"ashoka.edu.in"}'),
+    ($4, 'unrelated@ashoka.edu.in', now(), '{"provider":"google"}', '{}')`, [memberId, peerId, outsiderId, unrelatedId])
   await db.query(`insert into auth.identities values
     ($1, 'google', '{"email":"student@ashoka.edu.in"}'),
     ($2, 'google', '{"email":"peer@ashoka.edu.in"}'),
-    ($3, 'google', '{"email":"outsider@gmail.com"}')`, [memberId, peerId, outsiderId])
+    ($3, 'google', '{"email":"outsider@gmail.com"}'),
+    ($4, 'google', '{"email":"unrelated@ashoka.edu.in"}')`, [memberId, peerId, outsiderId, unrelatedId])
 })
 after(async () => { await db.close() })
 
@@ -46,6 +60,14 @@ async function asCaller(id, role = 'authenticated') {
 async function allowed() { return (await db.query('select public.is_ashoka_member() as allowed')).rows[0].allowed }
 async function create(data) { return (await db.query('select public.create_report($1::jsonb) as id', [JSON.stringify(data)])).rows[0].id }
 const general = (kind, title) => ({ kind, section: 'general', title, category: 'Accessories', description: 'Blue canvas pouch', location: 'Library', occurred_on: '2026-11-13', withheld_detail_confirmed: kind === 'found' })
+
+async function submitClaim(reportId, { requestId = randomUUID(), evidence = 'A zigzag stitch inside the pocket.', lostId = null } = {}) {
+  return (await db.query('select public.submit_claim($1, $2, $3, $4) as id', [reportId, requestId, evidence, lostId])).rows[0].id
+}
+
+async function myClaims() {
+  return (await db.query('select public.list_my_claims() as claims')).rows[0].claims
+}
 
 test('signup hook accepts only exact Ashoka Google addresses, including case variants', async () => {
   await asCaller('', 'supabase_auth_admin')
@@ -156,4 +178,128 @@ test('photo mutation is owner-only, general-only, and capped at three per report
   assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n, 1, 'owner retains access to history photos')
   const { rows: policies } = await db.query("select count(*)::int as n from pg_policies where schemaname='storage' and tablename='objects'")
   assert.equal(policies[0].n, 3)
+})
+
+test('claim evidence and anonymous references are restricted to claimant and finder', async () => {
+  await asCaller(memberId)
+  const foundId = await create(general('found', 'Green tote'))
+  await asCaller(peerId)
+  const lostId = await create(general('lost', 'My canvas bag'))
+  const evidence = 'An embroidered triangle in the lining.'
+  const claimId = await submitClaim(foundId, { evidence: `\n ${evidence} \t`, lostId })
+
+  for (const [caller, role, lostTitle] of [
+    [peerId, 'claimant', 'My canvas bag'],
+    [memberId, 'finder', null],
+  ]) {
+    await asCaller(caller)
+    const [claim] = await myClaims()
+    assert.equal(claim.id, claimId)
+    assert.equal(claim.found_title, 'Green tote')
+    assert.equal(claim.status, 'pending')
+    assert.equal(claim.role, role)
+    assert.equal(claim.evidence, evidence)
+    assert.equal(claim.lost_title, lostTitle)
+    const projection = JSON.stringify(claim)
+    for (const value of [memberId, peerId, lostId, '@ashoka.edu.in']) {
+      assert.equal(projection.includes(value), false)
+    }
+    for (const table of ['claims', 'claim_events', 'notifications']) {
+      await assert.rejects(db.query(`select * from private.${table}`), { code: '42501' })
+    }
+  }
+
+  await asCaller(unrelatedId)
+  assert.deepEqual(await myClaims(), [])
+  const { rows: [{ reports }] } = await db.query("select public.directory_reports('general', 'found', 'Green tote') as reports")
+  assert.equal(reports[0].id, foundId)
+  assert.equal(JSON.stringify(reports).includes(evidence), false)
+  assert.equal(JSON.stringify(reports).includes(claimId), false)
+  await asCaller(outsiderId)
+  await assert.rejects(myClaims(), /University access required/)
+  await assert.rejects(submitClaim(foundId), /University access required/)
+  await asCaller('', 'anon')
+  await assert.rejects(myClaims(), /permission denied for function/)
+  await assert.rejects(submitClaim(foundId), /permission denied for function/)
+})
+
+test('claim submission validates target, evidence, linked report ownership, and active duplicates', async () => {
+  await asCaller(memberId)
+  const foundId = await create(general('found', 'Blue jacket'))
+  await assert.rejects(submitClaim(foundId), /cannot claim your own report/)
+
+  await asCaller(unrelatedId)
+  const unrelatedLostId = await create(general('lost', 'Campus scarf'))
+  await asCaller(peerId)
+  await assert.rejects(submitClaim(unrelatedLostId), /Found report is unavailable/)
+  await assert.rejects(submitClaim(foundId, { lostId: unrelatedLostId }), /must be your own lost report/)
+  await assert.rejects(submitClaim(foundId, { lostId: foundId }), /must be your own lost report/)
+  await assert.rejects(submitClaim(foundId, { evidence: '\n \t' }), /Enter 1 to 2000 characters/)
+  await assert.rejects(submitClaim(foundId, { evidence: 'x'.repeat(2001) }), /Enter 1 to 2000 characters/)
+  const requestId = randomUUID()
+  const claimId = await submitClaim(foundId, { requestId })
+  assert.equal(await submitClaim(foundId, { requestId }), claimId)
+  await assert.rejects(submitClaim(foundId, { requestId, evidence: 'Different evidence' }), /Request ID was already used/)
+  await assert.rejects(submitClaim(foundId), /already have an active claim/)
+
+  await asCaller(unrelatedId)
+  const secondClaimId = await submitClaim(foundId)
+  await asCaller(memberId)
+  await db.query('select public.close_report($1)', [foundId])
+  for (const [caller, id] of [[peerId, claimId], [unrelatedId, secondClaimId]]) {
+    await asCaller(caller)
+    const claim = (await myClaims()).find((entry) => entry.id === id)
+    assert.equal(claim.status, 'rejected')
+    assert.equal(claim.outcome_reason, 'report withdrawn')
+  }
+  await asCaller(peerId)
+  assert.equal(await submitClaim(foundId, { requestId }), claimId, 'an exact retry succeeds after report closure')
+  await assert.rejects(submitClaim(foundId), /Found report is unavailable/)
+
+  await db.exec('reset role')
+  const { rows } = await db.query(`
+    select e.claim_id, e.status, n.recipient_id
+    from private.claim_events e join private.notifications n on n.event_id = e.id
+    where e.claim_id in ($1, $2)
+    order by e.status, n.recipient_id, e.claim_id
+  `, [claimId, secondClaimId])
+  assert.deepEqual(rows.slice(0, 2).map(({ status, recipient_id }) => ({ status, recipient_id })), [
+    { status: 'pending', recipient_id: memberId },
+    { status: 'pending', recipient_id: memberId },
+  ])
+  assert.deepEqual(rows.slice(2), [
+    { claim_id: claimId, status: 'rejected', recipient_id: peerId },
+    { claim_id: secondClaimId, status: 'rejected', recipient_id: unrelatedId },
+  ])
+})
+
+test('a failed claim notification rolls back the claim, event, and request ID', async () => {
+  await asCaller(unrelatedId)
+  const foundId = await create(general('found', 'Black water bottle'))
+  await db.exec('reset role')
+  const counts = async () => (await db.query(`
+    select (select count(*)::int from private.claims) as claims,
+           (select count(*)::int from private.claim_events) as events,
+           (select count(*)::int from private.notifications) as notifications
+  `)).rows[0]
+  const before = await counts()
+  await db.exec('alter table private.notifications add constraint fixture_reject_notification check (false) not valid')
+  const requestId = randomUUID()
+  try {
+    await asCaller(peerId)
+    await assert.rejects(submitClaim(foundId, { requestId }), /fixture_reject_notification/)
+    await db.exec('reset role')
+    assert.deepEqual(await counts(), before)
+  } finally {
+    await db.exec('reset role; alter table private.notifications drop constraint fixture_reject_notification')
+  }
+
+  await asCaller(peerId)
+  await submitClaim(foundId, { requestId })
+  await db.exec('reset role')
+  assert.deepEqual(await counts(), {
+    claims: before.claims + 1,
+    events: before.events + 1,
+    notifications: before.notifications + 1,
+  })
 })
