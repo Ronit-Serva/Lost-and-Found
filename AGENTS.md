@@ -2,9 +2,9 @@
 
 Read these files before implementation, in order:
 
-1. `objective.md` — product requirements and privacy rules.
-2. `techstack.md` — architecture and engineering constraints.
-3. `roadmap.md` — phase status, exit checks, and next action.
+1. `constitution/objective.md` — product requirements and privacy rules.
+2. `constitution/techstack.md` — architecture and engineering constraints.
+3. `constitution/roadmap.md` — phase status, exit checks, and next action.
 4. `docs/handoffs/README.md` and the latest completed phase handoff — actual implementation and resumption instructions.
 
 The three constitution files govern decisions. Handoffs document implementation and evidence; resolve conflicts in the constitution before changing behavior.

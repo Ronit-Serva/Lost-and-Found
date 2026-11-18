@@ -1,4 +1,4 @@
-import { after, before, test } from 'node:test'
+import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
@@ -301,5 +301,182 @@ test('a failed claim notification rolls back the claim, event, and request ID', 
     claims: before.claims + 1,
     events: before.events + 1,
     notifications: before.notifications + 1,
+  })
+})
+
+describe('specialized MVP migration', () => {
+  const ownerId = '55555555-5555-4555-8555-555555555555'
+  const ownerEmail = 'mvp-owner@ashoka.edu.in'
+  const phone = '+12025550109'
+  const replacementPhone = '+12025550110'
+  let legacyId
+  let legacyGeneralId
+
+  const card = (rollNumber, fields = {}) => ({
+    kind: 'found', section: 'id_card', cardholder_name: 'Fixture Cardholder', roll_number: rollNumber, ...fields,
+  })
+  const key = (roomNumber, fields = {}) => ({
+    kind: 'lost', section: 'room_key', room_number: roomNumber, holder_name: 'Fixture Keyholder', ...fields,
+  })
+  const edit = (id, fields) => db.query('select public.edit_report($1, $2::jsonb)', [id, JSON.stringify(fields)])
+  const saveWhatsApp = (number) => db.query('select public.set_my_whatsapp($1)', [number])
+  const myWhatsApp = async () => (await db.query('select public.get_my_whatsapp() as number')).rows[0].number
+  const listings = async () => (await db.query('select public.list_my_reports() as reports')).rows[0].reports
+  const directory = async (section, kind, term = '') => (
+    await db.query('select public.directory_reports($1, $2, $3) as reports', [section, kind, term])
+  ).rows[0].reports
+
+  before(async () => {
+    await db.exec('reset role')
+    await db.query(`insert into auth.users values ($1, $2, now(), '{"provider":"google"}', '{"email":"forged@ashoka.edu.in"}')`, [ownerId, ownerEmail])
+    await db.query("insert into auth.identities values ($1, 'google', jsonb_build_object('email', $2::text))", [ownerId, ownerEmail])
+    await asCaller(ownerId)
+    legacyId = await create(card('MVP-001'))
+    legacyGeneralId = await create(general('found', 'Legacy canvas bag'))
+    await db.exec('reset role')
+    await db.exec(await readFile(new URL('../supabase/migrations/20261119000200_specialized_mvp_contact.sql', import.meta.url), 'utf8'))
+  })
+
+  test('legacy specialized reports stay private until the owner opts in and share only verified email', async () => {
+    await asCaller(peerId)
+    assert.deepEqual(await directory('id_card', 'found', 'MVP-001'), [])
+    await assert.rejects(edit(legacyId, { contact_method: 'email' }), { code: 'P0002' })
+
+    await asCaller(ownerId)
+    const legacy = (await listings()).find(({ id }) => id === legacyId)
+    assert.equal(legacy.roll_number, 'MVP-001')
+    assert.equal(legacy.contact_method, undefined)
+    assert.equal(legacy.contact_value, undefined)
+    await edit(legacyId, { contact_method: 'email' })
+
+    await asCaller(peerId)
+    const [listing] = await directory('id_card', 'found', 'MVP-001')
+    assert.equal(listing.id, legacyId)
+    assert.equal(listing.contact_method, 'email')
+    assert.equal(listing.contact_value, ownerEmail)
+    assert.equal(JSON.stringify(listing).includes(ownerId), false)
+    assert.equal(JSON.stringify(listing).includes('forged@ashoka.edu.in'), false)
+
+    await db.exec('reset role')
+    await db.query('update auth.users set email_confirmed_at = null where id = $1', [ownerId])
+    try {
+      await asCaller(peerId)
+      assert.deepEqual(await directory('id_card', 'found', 'MVP-001'), [])
+    } finally {
+      await db.exec('reset role')
+      await db.query('update auth.users set email_confirmed_at = now() where id = $1', [ownerId])
+    }
+
+    await asCaller(outsiderId)
+    await assert.rejects(directory('id_card', 'found', 'MVP-001'), { code: '42501' })
+    await assert.rejects(listings(), { code: '42501' })
+    await asCaller('', 'anon')
+    await assert.rejects(directory('id_card', 'found', 'MVP-001'), { code: '42501' })
+    await assert.rejects(listings(), { code: '42501' })
+  })
+
+  test('saved WhatsApp stays account-private until selected on a listing and remains the only shared contact there', async () => {
+    await asCaller(ownerId)
+    assert.equal(await myWhatsApp(), null)
+    await saveWhatsApp(phone)
+    await saveWhatsApp(phone)
+    assert.equal(await myWhatsApp(), phone)
+
+    await asCaller(peerId)
+    assert.equal(await myWhatsApp(), null)
+    assert.equal(JSON.stringify(await directory('id_card', 'found', 'MVP-001')).includes(phone), false)
+    await assert.rejects(db.query('select * from private.whatsapp_contacts'), { code: '42501' })
+
+    await asCaller(ownerId)
+    const keyId = await create(key('MVP-002', { contact_method: 'whatsapp' }))
+    assert.equal((await listings()).find(({ id }) => id === keyId).contact_value, phone)
+
+    await asCaller(peerId)
+    const [listing] = await directory('room_key', 'lost', 'MVP-002')
+    assert.equal(listing.id, keyId)
+    assert.equal(listing.contact_method, 'whatsapp')
+    assert.equal(listing.contact_value, phone)
+    assert.equal(JSON.stringify(listing).includes(ownerEmail), false)
+    assert.deepEqual(await directory('room_key', 'lost', phone), [])
+
+    await asCaller(ownerId)
+    await assert.rejects(saveWhatsApp(null), { code: '55000' })
+    await saveWhatsApp(replacementPhone)
+    await asCaller(peerId)
+    assert.equal((await directory('room_key', 'lost', 'MVP-002'))[0].contact_value, replacementPhone)
+    await assert.rejects(db.query('select public.close_report($1)', [keyId]), { code: 'P0002' })
+
+    await asCaller(ownerId)
+    await edit(keyId, { contact_method: 'email' })
+    await asCaller(peerId)
+    const [switched] = await directory('room_key', 'lost', 'MVP-002')
+    assert.equal(switched.contact_method, 'email')
+    assert.equal(switched.contact_value, ownerEmail)
+    assert.equal(JSON.stringify(switched).includes(replacementPhone), false)
+
+    await asCaller(ownerId)
+    await edit(keyId, { contact_method: 'whatsapp' })
+    await db.query('select public.close_report($1)', [keyId])
+    const closed = (await listings()).find(({ id }) => id === keyId)
+    assert.equal(closed.contact_method, undefined)
+    assert.equal(closed.contact_value, undefined)
+    await saveWhatsApp(null)
+    assert.equal(await myWhatsApp(), null)
+    await asCaller(peerId)
+    assert.deepEqual(await directory('room_key', 'lost', 'MVP-002'), [])
+  })
+
+  test('contact setup and report writes reject invalid input and attempts to bypass the chosen method', async () => {
+    await asCaller(ownerId)
+    for (const badNumber of ['2025550109', '+01234', '+12025550109x']) {
+      await assert.rejects(saveWhatsApp(badNumber), { code: '22023' })
+    }
+    for (const fields of [
+      {}, { contact_method: null }, { contact_method: 'sms' }, { contact_method: ['email', 'whatsapp'] },
+      { contact_method: 'email', contact_value: phone }, { contact_method: 'whatsapp' },
+    ]) {
+      await assert.rejects(create(key('MVP-003', fields)), { code: '22023' })
+    }
+    await assert.rejects(edit(legacyId, { contact_method: 'email', contact_value: phone }), { code: '22023' })
+    assert.equal((await listings()).find(({ id }) => id === legacyId).contact_value, ownerEmail)
+    await asCaller(outsiderId)
+    await assert.rejects(myWhatsApp(), { code: '42501' })
+    await assert.rejects(saveWhatsApp(phone), { code: '42501' })
+    await asCaller('', 'anon')
+    await assert.rejects(myWhatsApp(), { code: '42501' })
+    await assert.rejects(saveWhatsApp(phone), { code: '42501' })
+  })
+
+  test('General Items, claim, and photo flows are unavailable while existing General Items remain in owner history', async () => {
+    await asCaller(ownerId)
+    assert.ok((await listings()).some(({ id }) => id === legacyGeneralId))
+    await assert.rejects(create({ ...general('lost', 'New bag'), contact_method: 'email' }), { code: '22023' })
+    await assert.rejects(edit(legacyGeneralId, { title: 'Changed title', contact_method: 'email' }), { code: 'P0002' })
+    await asCaller(peerId)
+    assert.deepEqual(await directory('general', 'found'), [])
+    await assert.rejects(db.query('select private.create_report($1::jsonb)', [JSON.stringify(general('found', 'Bypass fixture'))]), { code: '42501' })
+    await assert.rejects(db.query('select private.edit_report($1, $2::jsonb)', [legacyGeneralId, JSON.stringify({ title: 'Bypass' })]), { code: '42501' })
+    await assert.rejects(myClaims(), { code: '42501' })
+    await assert.rejects(submitClaim(legacyId), { code: '42501' })
+    await assert.rejects(db.query('select public.list_report_photos($1)', [legacyGeneralId]), { code: '42501' })
+    await assert.rejects(db.query('select public.add_report_photo($1,$2,100,80,1234)', [legacyGeneralId, 'fixture.jpg']), { code: '42501' })
+    await assert.rejects(db.query('select public.remove_report_photo($1,$2)', [legacyGeneralId, 'fixture.jpg']), { code: '42501' })
+    await asCaller(memberId)
+    assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n, 0)
+  })
+
+  test('only the owner can mark a specialized found report returned and remove it from the directory', async () => {
+    const returned = () => db.query('select public.mark_report_returned($1)', [legacyId])
+    await asCaller(peerId)
+    await assert.rejects(returned(), { code: 'P0002' })
+    assert.equal((await directory('id_card', 'found', 'MVP-001'))[0].id, legacyId)
+    await asCaller(ownerId)
+    await returned()
+    await returned()
+    const report = (await listings()).find(({ id }) => id === legacyId)
+    assert.equal(report.status, 'returned')
+    assert.equal(report.contact_value, undefined)
+    await asCaller(peerId)
+    assert.deepEqual(await directory('id_card', 'found', 'MVP-001'), [])
   })
 })
