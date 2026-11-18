@@ -1,0 +1,6 @@
+project_id = "ashoka-lost-and-found"
+
+# Deliberately limits config push to these two Auth URL properties.
+[auth]
+site_url = "https://foundry-ashoka.vercel.app"
+additional_redirect_urls = ["http://localhost:5173/**", "https://foundry-ashoka.vercel.app"]

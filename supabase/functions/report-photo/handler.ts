@@ -14,7 +14,7 @@ export type PhotoDependencies = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const headers = (origin: string) => ({
   'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Headers': 'authorization,content-type,x-report-id',
+  'Access-Control-Allow-Headers': 'apikey,authorization,content-type,x-client-info,x-report-id',
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
   'Cache-Control': 'no-store',
   Vary: 'Origin',

@@ -1,6 +1,6 @@
 # Lost & Found — implementation roadmap
 
-Updated: 2026-11-14. Current state: Phases 0 and 1 complete; Phase 2 reporting is in progress. Authentication, hosted embedding/image/session checks, and Free/no-card setup are confirmed. Read [the handoff index](docs/handoffs/README.md), [Phase 1 implementation](docs/handoffs/phase-1.md), and the active [Phase 2 handoff](docs/handoffs/phase-2.md) to resume without earlier chat history.
+Updated: 2026-11-18. Phases 0–2 are complete. Phase 3 is next. The live test app is https://foundry-ashoka.vercel.app. Resume from the [handoff index](docs/handoffs/README.md) and [completed Phase 2 handoff](docs/handoffs/phase-2.md).
 
 Read [objective.md](objective.md) for requirements and [techstack.md](techstack.md) for architecture. A phase is complete only when its exit checks pass and evidence is recorded here. Never mark mock-only behavior as a working integration.
 
@@ -10,7 +10,7 @@ Read [objective.md](objective.md) for requirements and [techstack.md](techstack.
 |---|---|---|---|
 | 0 | Product, technical, and delivery constitution | Complete | Documentation task completed |
 | 1 | Foundation and integration feasibility | Complete | 2–3 developer days |
-| 2 | Private campus reporting and dashboard | In progress | 3–4 developer days |
+| 2 | Private campus reporting and dashboard | Complete | 3–4 developer days |
 | 3 | Claims, email disclosure, notifications, and return | Not started | 4–6 developer days |
 | 4 | Category-specific matching | Not started | 2–4 developer days |
 | 5 | Release validation and campus pilot | Not started | 2–3 developer days |
@@ -37,7 +37,7 @@ Progress (2026-11-14): React/TypeScript/Vite scaffold, responsive dashboard prev
 | Reproducible local checks | Node 22 LTS (`.nvmrc`; local 22.16.0), locked npm/Deno dependencies, Supabase CLI 3.1.0. Local lint, Edge type checks, tests, and production build pass. |
 | CI | GitHub Actions workflow implements locked installation and those checks. First GitHub-hosted run awaits a repository push; none has been performed by the agent. |
 | Embeddings and pgvector | New probe migration and authenticated Edge Function are ready. pgvector 0.8.2 is installed in the hosted extensions schema and the probe is deployed. Project owner supplied a passing hosted run: three native 384-dimensional gte-small embeddings in 361 ms, pgvector ranking in 58 ms; related candidate ranked first. |
-| Images and session checks | JPEG/PNG byte/dimension validation, resize/re-encoding, metadata removal, and transparency flattening pass locally in Deno. Hosted synthetic image processing passed in 57 ms with metadata removal and invalid-file rejection. Forced session refresh passed; anonymous invocation returned 401. Full-sized photo/resource testing remains Phase 2 work. |
+| Images and session checks | JPEG/PNG byte/dimension validation, resize/re-encoding, metadata removal, and transparency flattening pass locally in Deno. Hosted synthetic image processing passed in 57 ms with metadata removal and invalid-file rejection. Forced session refresh passed; anonymous invocation returned 401. This Phase 1 check used a small synthetic image. |
 
 Validation (2026-11-14): six database regression tests pass using temporary PGlite/pgvector with synthetic Auth fixtures. Ten Deno tests pass for authorization gates, payload rejection before model work, budget handling, error sanitization, embedding validation, invalid/oversized image rejection, resizing, metadata removal, and transparent-image flattening. Native gte-small is not available in ordinary Deno; mocked handler dependencies do not establish a live model pass.
 
@@ -77,9 +77,9 @@ Goal: eligible members can report and browse belongings privately. Covers O2 and
 
 Exit: a member can publish and edit lost/found reports; another eligible member can discover them but cannot edit them or retrieve the owner's identity. Outsiders cannot retrieve listing data or images. Withdrawn/closed reports leave default discovery. Fourth lost/found reports are blocked independently across mixed sections; reserved found reports still count. Concurrent creation at two active reports permits exactly one additional report. Closing one frees exactly one slot.
 
-Progress (2026-11-14; not phase-complete): reconciled hosted migration history for versions `20261114000100` and `20261114000200`, then applied migrations `20261114000300`–`20261114000700`. A privacy review removed reporter UUIDs from photo object paths before any real photos were stored. The hosted database has typed reports, private report/photo metadata tables, server-enforced per-owner quota locks, safe JSONB listing RPCs, section-specific constraints, a private `report-photos` bucket, and three Storage policies. Deployed authenticated `report-photo` Edge Function and wired create/edit/close, directory, quotas, photo upload/read/remove in the app. Local PGlite report/photo checks (8) and Deno image/handler checks (7) pass; TypeScript production build passes. Remote inventory confirms migration versions 00100–00700, report/photo/storage-object counts are zero, private bucket, three Storage policies, no direct table SELECT grants, and no Phase 1 probe table/RPC/function. An anonymous Edge invocation returned 401.
+Implementation checkpoint (2026-11-14): reconciled hosted migration history for versions `20261114000100` and `20261114000200`, then applied migrations `20261114000300`–`20261114000700`. A privacy review removed reporter UUIDs from photo object paths before any real photos were stored. The hosted database has typed reports, private report/photo metadata tables, server-enforced per-owner quota locks, safe JSONB listing RPCs, section-specific constraints, a private `report-photos` bucket, and three Storage policies. Deployed authenticated `report-photo` Edge Function and wired create/edit/close, directory, quotas, photo upload/read/remove in the app. Local PGlite report/photo checks (8) and Deno image/handler checks (7) pass; TypeScript production build passes. Remote inventory confirms migration versions 00100–00700, report/photo/storage-object counts are zero, private bucket, three Storage policies, no direct table SELECT grants, and no Phase 1 probe table/RPC/function. An anonymous Edge invocation returned 401.
 
-Still required before Phase 2 exit: live eligible-user/third-user browser walkthrough; real Storage upload/read/delete isolation; two-session concurrent quota proof; status and photo policy checks against live JWTs; 360 px and keyboard review; improved search filters; ensure form visibility/accessibility and photo retry/removal paths are exercised. General semantic matching is Phase 4. See [the Phase 2 handoff](docs/handoffs/phase-2.md) for exact contracts and stopping point.
+Completion (2026-11-18): the project owner confirmed that the Phase 2 exit checks passed after the Vercel and Supabase photo upload fix. The [Phase 2 handoff](docs/handoffs/phase-2.md) records the owner confirmation and the available automated and hosted checks. Detailed walkthrough and concurrency results were not supplied.
 
 Evidence to record: migration names, relevant test commands/results, and a short report/create/edit/filter walkthrough.
 
@@ -137,10 +137,10 @@ Pilot feedback tasks are planned, not authorization to contact participants. Ask
 
 | Check | Owner / action | Required by |
 |---|---|---|
-| Supabase and hosting access | Supabase/CLI access confirmed; Cloudflare Pages provisioning remains future release work | Phase 5 hosting |
+| Supabase and hosting access | Supabase access confirmed; Vercel Hobby test app deployed at https://foundry-ashoka.vercel.app on 2026-11-18; Phase 2 exit accepted by owner | Phase 5 release validation |
 | Google OAuth credentials and university policy | Real login/session/outsider checks passed; inspect publishing/redirect restrictions when preparing the campus pilot | Phase 5 release |
 | Eligible audience | Default is all Google-authenticated users with a confirmed @ashoka.edu.in email; owner may narrow with a reliable student source | Before pilot |
-| Free embeddings and image processing | Hosted Phase 1 smoke checks and Free/no-card setup passed; report-photo endpoint is deployed; full-sized photos and real Storage access still need verification | Phase 2 / Phase 5 operations |
+| Free embeddings and image processing | Hosted Phase 1 smoke checks and Free/no-card setup passed; report-photo endpoint is deployed; full-sized photo performance and detailed Storage evidence remain release validation items | Phase 5 operations |
 | Location choices and email-disclosure wording | Verify with project owner/pilot participants | Before pilot |
 
 The Phase 1 account/runtime/free-plan checks are complete as recorded above. Production hosting, campus input, and later workflow validation retain their phase-specific requirements. During implementation, record any concrete blocker in the active phase handoff.
@@ -169,6 +169,7 @@ The Phase 1 account/runtime/free-plan checks are complete as recorded above. Pro
 | 2026-11-14 | Dashboard, finder-controlled claims, private identities, withheld distinguishing details | Preserved stakeholder requirements. |
 | 2026-11-14 | Google-only confirmed Ashoka email access and in-app notifications | Uses university identity and avoids an email delivery dependency. |
 | 2026-11-14 | React/Vite + Cloudflare Pages + Supabase | Small deployable architecture under the no-card/free constraint. |
+| 2026-11-18 | Owner selected Vercel instead of Cloudflare Pages; publish the existing app for two-device Phase 2 tests | Explicit owner hosting choice. Vercel Hobby project `foundry-ashoka`; Supabase backend and Ashoka-only data access continue. |
 | 2026-11-14 | Native gte-small + pgvector for General Items; indexed strings for ID Cards/Room Keys | Preserves semantic matching where useful while avoiding model compute for structured identifiers. |
 | 2026-11-14 | Finder email disclosed only after validated acceptance; parties coordinate independently | User feedback replaces the earlier structured collection proposal design; no SMTP or in-app scheduler needed. |
 | 2026-11-14 | Node/PGlite and Deno tests plus a guarded hosted feasibility probe | SQL and Edge checks run without Docker; native model/runtime evidence stays a separate completion gate. |
@@ -182,4 +183,4 @@ The Phase 1 account/runtime/free-plan checks are complete as recorded above. Pro
 
 ## Next implementation action
 
-Phase 2 is in progress. Read [the active Phase 2 handoff](docs/handoffs/phase-2.md) and continue with live account/access walkthroughs, quota concurrency proof, and responsive/keyboard checks. Preserve existing uncommitted files. Do not advance to Phase 3 until Phase 2 exit checks and the final implementation handoff are complete.
+Phase 3 is next. When starting it, create its handoff from the shared template and implement claim submission, private evidence access, and duplicate and self-claim rejection. Follow the existing report lock contract. See the [Phase 2 handoff](docs/handoffs/phase-2.md).

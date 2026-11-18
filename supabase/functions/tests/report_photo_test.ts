@@ -54,6 +54,25 @@ Deno.test('sanitized image is stored and registered without source metadata', as
   assert.equal(photo.removed(), false)
 })
 
+Deno.test('browser preflight allows the Supabase client upload headers without a session', async () => {
+  const origin = 'http://localhost:5173'
+  const requestedHeaders = ['apikey', 'authorization', 'content-type', 'x-client-info', 'x-report-id']
+  const { handler } = fixture({ authenticate: async () => assert.fail('Preflight must not authenticate') })
+  const response = await handler(new Request('https://example.test/report-photo', {
+    method: 'OPTIONS',
+    headers: {
+      Origin: origin,
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': requestedHeaders.join(','),
+    },
+  }))
+
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.get('access-control-allow-origin'), origin)
+  const allowedHeaders = response.headers.get('access-control-allow-headers')?.split(',').map((name) => name.trim())
+  for (const header of requestedHeaders) assert.ok(allowedHeaders?.includes(header), `${header} must be allowed`)
+})
+
 Deno.test('report registration failure deletes the newly uploaded object', async () => {
   let removed = false
   const handler = createReportPhotoHandler({ origin: 'http://localhost:5173', authenticate: async () => ({

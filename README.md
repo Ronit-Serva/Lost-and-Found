@@ -4,7 +4,7 @@ Campus lost-and-found portal MVP. Product and implementation decisions live in [
 
 ## Resume implementation in a new session
 
-Read the three constitution files, then [the handoff index](docs/handoffs/README.md), [Phase 1 implementation details](docs/handoffs/phase-1.md), and the active [Phase 2 handoff](docs/handoffs/phase-2.md). Phase 2 is in progress. Every phase requires a detailed implementation handoff before advancing. `AGENTS.md` gives incoming agents the same entry point.
+Read the three constitution files and [the handoff index](docs/handoffs/README.md). Phase 2 is complete and Phase 3 is next. See the [Phase 2 implementation handoff](docs/handoffs/phase-2.md).
 
 ## Local development
 
@@ -13,7 +13,7 @@ Read the three constitution files, then [the handoff index](docs/handoffs/README
 3. Copy `.env.example` to `.env.local` when a Supabase project is ready.
 4. Run `npm run dev`.
 
-Google PKCE login, session handling, and a server membership check are wired into the app. The hosted Phase 2 database currently supports report create/edit/close, directory and owner listing, shared quotas, and private photos. Claims and notifications remain Phase 3 work. See the active handoff for deployed state and remaining verification.
+Google PKCE login, session handling, and a server membership check are wired into the app. The hosted Phase 2 database currently supports report create/edit/close, directory and owner listing, shared quotas, and private photos. Claims and notifications remain Phase 3 work. See the Phase 2 handoff for deployment and verification details.
 
 ## Supabase setup
 
@@ -34,7 +34,7 @@ No database password, service-role key, or Google client secret belongs in `.env
 | Google account from another domain | New signup is rejected by the hook. In External testing mode, add this account as an OAuth test user first so the request reaches Supabase. |
 | Existing ineligible Supabase user | Membership helper returns false and dashboard remains blocked. |
 
-The project owner has confirmed eligible Ashoka sign-in/dashboard access, reload persistence, sign-out, account switching, and personal-account rejection. Forced session refresh also passed in the Phase 1 hosted probe. Phase 2 report policies and storage functions have local synthetic coverage, but real-account report and photo isolation still need a browser walkthrough.
+The project owner has confirmed eligible Ashoka sign-in/dashboard access, reload persistence, sign-out, account switching, and personal-account rejection. Forced session refresh also passed in the Phase 1 hosted probe. Phase 2 report policies and storage functions have local synthetic coverage. The project owner confirmed the Phase 2 exit checks passed on 2026-11-18.
 
 ## Database access rule for subsequent features
 
@@ -44,15 +44,15 @@ The selected policy checks a confirmed Google email ending exactly in `@ashoka.e
 
 ## Hosting and deployment workflow
 
-Frontend: **GitHub → Cloudflare Pages**. Backend: **Supabase**. Initial hosting uses the free Cloudflare subdomain.
+Frontend: **Vercel Hobby** (selected by the owner on 2026-11-18). Backend: **Supabase**. Live Phase 2 test app: **https://foundry-ashoka.vercel.app**. Each tester signs in with their own Ashoka Google account on their own device.
 
-1. Push the reviewed repository to GitHub and connect it to Cloudflare Pages. Use `npm run build` as the build command and `dist` as the output directory.
-2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the Pages build environment. The Vite bundle includes these public values; never add privileged secrets.
-3. Apply versioned database migrations and deploy Supabase Edge Functions separately before releasing frontend code that depends on them. Configure the hosted Auth hook/provider settings separately. Set the Edge Function variable `PHASE2_ALLOWED_ORIGIN` to the production Pages origin before enabling photo upload there. This repository has no automated backend deployment.
+1. The Vercel project is `foundry-ashoka`, with Node 22, build command `npm run build`, and output directory `dist`. Deploy from this checkout with `vercel deploy --prod`; `vercel.json` includes SPA route fallback. The initial deployment used the CLI. Automatic GitHub deployment is not connected because the Vercel account needs a GitHub Login Connection.
+2. `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are configured in Vercel's production, preview, and development environments. The Vite bundle includes these public values; never add privileged secrets. `.vercelignore` excludes local environment files, dependencies, and backend source from frontend uploads.
+3. Apply versioned database migrations and deploy Supabase Edge Functions separately before releasing frontend code that depends on them. Hosted `PHASE2_ALLOWED_ORIGIN` is `https://foundry-ashoka.vercel.app`. This repository has no automated backend deployment.
 4. Set the Supabase Site URL to the production HTTPS address and register exact local/production redirect URLs. Only allow trusted preview URLs when needed. The Google callback remains the Supabase Auth callback.
-5. Validate the real-account login and application access checks before the campus pilot. Subsequent frontend pushes deploy through Pages; backend migrations remain an explicit release step. Hosting has not been provisioned by this repository.
+5. Validate the real-account login and application access checks before the campus pilot. The live site was used for Phase 2 acceptance. The MVP release gate remains ahead. Backend migrations remain an explicit release step.
 
-Vite's `public/_redirects` supplies the SPA route fallback for Pages.
+To update only the hosted Auth URLs, review `npx supabase config diff --remote=jdaertuqzbgfdnnpranl --workdir deploy/phase2-auth`, then use the corresponding `config push --yes`. This limited config declares only `site_url` and `additional_redirect_urls`, avoiding changes to the hosted Google secrets and Auth hook. Localhost redirects are retained. The main `supabase/config.toml` keeps the localhost Site URL for local-stack development.
 
 ## Local checks and Phase 1 evidence
 

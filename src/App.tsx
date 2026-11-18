@@ -105,23 +105,32 @@ function App({ email, onSignOut }: AppProps) {
     const { data: savedId, error: resultError } = editing
       ? await supabase.rpc('edit_report', { p_report_id: editing.id, p_data: data })
       : await supabase.rpc('create_report', { p_data: data })
-    setSaving(false)
     if (resultError) {
+      setSaving(false)
       setError(resultError.message.includes('Active report limit') ? `You already have 3 active ${formKind} reports. Close one from My Listings to make room.` : 'Report could not be saved. Check the fields and try again.')
       return
     }
     const reportId = editing?.id ?? (savedId as string | null)
-    let photoFailed = false
+    let photoNotice = ''
     if (reportId && selectedPhotos.length) {
-      for (const file of selectedPhotos.slice(0, 3)) {
-        const { error: photoError } = await supabase.functions.invoke('report-photo', {
-          body: file,
-          headers: { 'x-report-id': reportId, 'Content-Type': file.type },
-        })
-        if (photoError) { photoFailed = true; break }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.access_token) {
+        photoNotice = 'Report saved. Sign in again, then edit the report to attach your photos.'
+      } else {
+        for (const file of selectedPhotos.slice(0, 3)) {
+          const { error: photoError } = await supabase.functions.invoke('report-photo', {
+            body: file,
+            headers: { Authorization: `Bearer ${session.access_token}`, 'x-report-id': reportId },
+          })
+          if (photoError) {
+            photoNotice = 'Report saved, but a photo could not be uploaded. Edit the report and retry.'
+            break
+          }
+        }
       }
     }
-    setFormOpen(false); setNotice(photoFailed ? 'Report saved, but a photo could not be processed. Edit the report and retry.' : editing ? 'Report updated.' : 'Report posted.'); setView('mine'); setLoading(true)
+    setSaving(false)
+    setFormOpen(false); setNotice(photoNotice || (editing ? 'Report updated.' : 'Report posted.')); setView('mine'); setLoading(true)
     await reload()
   }
   async function closeReport(report: Report) {

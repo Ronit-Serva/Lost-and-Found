@@ -1,6 +1,6 @@
 # Lost & Found — technical constitution
 
-Updated: 2026-11-14. Status: Phase 1 foundation and hosted feasibility verified; Phase 2 reporting is in progress. See [the active Phase 2 implementation handoff](docs/handoffs/phase-2.md).
+Updated: 2026-11-18. Status: Phase 2 reporting is complete. See [the completed Phase 2 implementation handoff](docs/handoffs/phase-2.md).
 
 Read with [objective.md](objective.md) and [roadmap.md](roadmap.md). Product requirements govern technical decisions. Do not substitute a paid dependency or weaken access controls to bypass an integration problem.
 
@@ -12,7 +12,7 @@ Read with [objective.md](objective.md) and [roadmap.md](roadmap.md). Product req
 | UI and data | Tailwind CSS; accessible native controls; TanStack Query; Zod | Responsive styling, cached server state/polling, shared input validation. |
 | Backend | Supabase Free: PostgreSQL, Auth, private Storage, Edge Functions | Persistent records, Google login, controlled uploads, server-side workflows. |
 | Search | PostgreSQL full-text search + pgvector; built-in Edge Runtime gte-small embeddings | Indexed normalized string matching for ID cards/keys; keyword fallback and semantic retrieval for general items without a paid AI API. |
-| Delivery and validation | Cloudflare Pages Free; GitHub Actions; npm; Node test runner + PGlite/pgvector; Deno tests | Static hosting, reproducible installs, SQL authorization checks, Edge handler and image tests. Add Testing Library/Playwright when interactive workflows are implemented. |
+| Delivery and validation | Vercel Hobby; GitHub Actions; npm; Node test runner + PGlite/pgvector; Deno tests | Static hosting, reproducible installs, SQL authorization checks, Edge handler and image tests. Add Testing Library/Playwright when interactive workflows are implemented. |
 
 Use a supported Node.js LTS and mutually compatible stable packages when scaffolding. Pin resolved dependencies in package-lock.json and record the Node version. Avoid prescribing unverified package versions in this document.
 
@@ -22,13 +22,13 @@ No Next.js server, separate Node/Django API server, microservices, Redis, or ext
 
 ## Deployment boundaries
 
-Browser → Cloudflare-hosted React application.
+Browser → Vercel-hosted React application.
 Browser → Supabase Auth for login/session management.
 Authenticated browser → RLS-protected PostgreSQL APIs and private Storage.
 Authenticated browser → Edge Functions for embeddings; functions enforce the database membership check.
 PostgreSQL functions → atomic report quotas, claim/return transitions, restricted finder-email lookup, and notifications.
 
-Configure SPA route fallback on Cloudflare. Host the initial site on its provided subdomain with HTTPS. Production and preview OAuth redirect URLs must be explicitly registered.
+Configure SPA route fallback in `vercel.json`. Host the initial site on its provided subdomain with HTTPS. Production and preview OAuth redirect URLs must be explicitly registered. The owner selected Vercel on 2026-11-18; the Phase 2 test URL is `https://foundry-ashoka.vercel.app`.
 
 The browser receives only the Supabase URL and publishable key. Service-role keys, OAuth secrets, and database credentials remain in provider secret stores/local ignored environment files. Commit a names-only .env.example. Do not log tokens or private claim bodies.
 
@@ -82,7 +82,7 @@ General Items only; specialized reports reject image attachments. Private bucket
 
 Initial application limits: three photos per report, 5 MB maximum incoming image, resize to at most 1600 px longest edge, aim for 250 KB stored image and cap at 500 KB. If this cannot be met, ask for a smaller image. Use a maintained image-processing library compatible with the chosen runtime; validate this in Phase 1.
 
-Initial accepted formats are JPEG and PNG, verified from file bytes rather than browser MIME labels. ImageScript performs decoding and JPEG re-encoding without native binaries. Check input dimensions before decoding, with a 12-million-pixel processing cap; copy pixels into a fresh image, flatten transparency onto white, resize, and omit source metadata. Try bounded JPEG quality levels and reject outputs above 500 KB. The Phase 1 synthetic fixture and Phase 2 local image-handler tests verify these operations. The hosted Phase 2 photo endpoint is deployed; full-sized photo CPU/memory limits and real-user Storage access remain unverified.
+Initial accepted formats are JPEG and PNG, verified from file bytes rather than browser MIME labels. ImageScript performs decoding and JPEG re-encoding without native binaries. Check input dimensions before decoding, with a 12-million-pixel processing cap; copy pixels into a fresh image, flatten transparency onto white, resize, and omit source metadata. Try bounded JPEG quality levels and reject outputs above 500 KB. The Phase 1 synthetic fixture and Phase 2 local image-handler tests verify these operations. The hosted Phase 2 photo endpoint is deployed; the owner confirmed Phase 2 acceptance. Detailed storage access results and measurements for full-sized photos are unavailable.
 
 On edit/withdrawal, remove obsolete objects safely and prevent orphan accumulation. Photo content is visible to eligible members; private ownership evidence is text-only in this MVP.
 
@@ -110,7 +110,7 @@ Do not add Realtime subscriptions initially. Polling is adequate for the agreed 
 
 ## Free-service and operations constraints
 
-Cloudflare Pages Free and Supabase Free are the deployment baseline; GitHub student offers are optional tools, not runtime dependencies. No email delivery service is required for Google-only login, in-app notifications, or finder email disclosure; users send handoff emails themselves.
+Vercel Hobby and Supabase Free are the deployment baseline; GitHub student offers are optional tools, not runtime dependencies. Vercel's API reported the selected team's plan as `hobby` on 2026-11-18. No email delivery service is required for Google-only login, in-app notifications, or finder email disclosure; users send handoff emails themselves.
 
 Supabase's published Free allowances checked during planning include 500 MB database, 1 GB file storage, and inactivity pausing after one week; other compute, bandwidth, and function quotas also apply. Verify the current terms and account activation before deployment. Do not imply campus-scale uptime or unlimited photo traffic.
 
@@ -130,7 +130,7 @@ Phase 1's developer-only `phase1-check` function, runner, RPCs, and private coun
 
 ## Required implementation handoff at every phase boundary
 
-Follow the phase-transition rule in objective.md and roadmap.md. Before advancing, complete `docs/handoffs/phase-N.md` with [the shared template](docs/handoffs/TEMPLATE.md), cross-check it against the code and actual deployment state, and link it from the [handoff index](docs/handoffs/README.md). Current reference: [Phase 1 implementation](docs/handoffs/phase-1.md).
+Follow the phase-transition rule in objective.md and roadmap.md. Before advancing, complete `docs/handoffs/phase-N.md` with [the shared template](docs/handoffs/TEMPLATE.md), cross-check it against the code and actual deployment state, and link it from the [handoff index](docs/handoffs/README.md). Latest completed handoff: [Phase 2 implementation](docs/handoffs/phase-2.md).
 
 | Area | Technical detail the handoff must preserve |
 |---|---|
@@ -151,4 +151,4 @@ Provider documentation checked 2026-11-14; quotas and capabilities must be reche
 - [Supabase Before User Created hook](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook)
 - [Supabase authorization policies](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase native embeddings and semantic search](https://supabase.com/docs/guides/functions/examples/semantic-search)
-- [Supabase pricing](https://supabase.com/pricing) and [Cloudflare Pages](https://www.cloudflare.com/products/pages/)
+- [Supabase pricing](https://supabase.com/pricing) and [Vercel Hobby](https://vercel.com/docs/plans/hobby)

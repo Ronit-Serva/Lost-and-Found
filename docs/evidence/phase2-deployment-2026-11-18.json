@@ -1,0 +1,57 @@
+{
+  "checked_at": "2026-11-18T16:25:59.163Z",
+  "site": "https://foundry-ashoka.vercel.app",
+  "project_id": "prj_uy7fiRxzkyHmsAuKKWKM8fSNaiEG",
+  "plan": "hobby",
+  "checks": [
+    {
+      "name": "photo_preflight",
+      "status": 204,
+      "allowed_origin": "https://foundry-ashoka.vercel.app",
+      "allowed_headers": "authorization,content-type,x-report-id"
+    },
+    {
+      "name": "anonymous_photo",
+      "status": 401
+    },
+    {
+      "name": "google_authorize",
+      "status": 302,
+      "destination_host": "accounts.google.com"
+    },
+    {
+      "name": "vercel_deployment",
+      "status": 200,
+      "ready_state": "READY",
+      "node_version": "22.x",
+      "deployment_id": "dpl_2tjjuCKqRiySVUwghakWyB2HQppZ",
+      "aliases": [
+        "foundry-ashoka.vercel.app",
+        "foundry-ashoka-no-sl-op.vercel.app"
+      ]
+    },
+    {
+      "name": "page",
+      "status": 200,
+      "has_app_root": true,
+      "title": "Foundry · Ashoka Lost &amp; Found",
+      "asset_path": "/assets/index-CvPCoK0T.js"
+    },
+    {
+      "name": "javascript_bundle",
+      "status": 200,
+      "configured_supabase_project": true,
+      "has_report_photo_integration": true
+    }
+  ],
+  "auth_urls": {
+    "site_url": "https://foundry-ashoka.vercel.app",
+    "additional_redirect_urls": [
+      "http://localhost:5173/**",
+      "https://foundry-ashoka.vercel.app"
+    ],
+    "declared_config_diff_updates": 0
+  },
+  "photo_allowed_origin": "https://foundry-ashoka.vercel.app",
+  "real_google_login": "pending owner and friend walkthrough"
+}

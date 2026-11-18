@@ -1,6 +1,6 @@
 # Lost & Found — product constitution
 
-Updated: 2026-11-14. Status: Phase 1 complete; Phase 2 reporting is in progress. See [the Phase 2 handoff](docs/handoffs/phase-2.md).
+Updated: 2026-11-18. Status: Phase 2 complete. Phase 3 is next. See [the Phase 2 handoff](docs/handoffs/phase-2.md).
 
 ## Authority and maintenance
 
@@ -19,7 +19,7 @@ Each handoff must make the next session independent of chat history: explain act
 
 When work stops mid-phase or changes agents, update the same phase document as an in-progress checkpoint without claiming completion. Reconcile the handoff, roadmap status, and affected constitution requirements before proceeding. Handoffs are implementation/evidence records subordinate to these three constitution files; they do not silently redefine product behavior or add an approval requirement.
 
-New sessions must read the constitution and [handoff index](docs/handoffs/README.md), then the latest completed phase and any current checkpoint. Phase 1 is recorded in [its handoff](docs/handoffs/phase-1.md); current in-progress implementation is [Phase 2](docs/handoffs/phase-2.md).
+New sessions must read the constitution and [handoff index](docs/handoffs/README.md), then the latest completed phase and any current checkpoint. The latest completed implementation is recorded in the [Phase 2 handoff](docs/handoffs/phase-2.md).
 
 ## Purpose and success
 

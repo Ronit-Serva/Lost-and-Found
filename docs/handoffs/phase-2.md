@@ -5,12 +5,12 @@
 | Field | Record |
 |---|---|
 | Phase / scope / objective IDs | Phase 2 — listings and personalized discovery; O1, O2, report portions of O3 |
-| Status | In progress |
-| Updated / completed date | 2026-11-14 / not complete |
-| Next phase allowed? | No; Phase 2 exit evidence and this handoff are required. |
-| First task for the next agent | Run the deployed app with an eligible Ashoka account and complete the create/edit/directory/photo/close walkthrough; record defects and verify live owner/peer/outsider behavior. |
+| Status | Complete, accepted by the project owner |
+| Updated / completed date | 2026-11-18 / 2026-11-18 |
+| Next phase allowed? | Yes. Phase 3 is next. |
+| First task for the next agent | Create `phase-3.md` from the template and implement claim submission with private evidence access and duplicate and self-claim rejection. |
 
-The Phase 1 migration-history reconciliation is complete. Versions `20261114000100` and `20261114000200` were verified against hosted objects and marked applied in history without replaying their SQL. Migrations `20261114000300`–`20261114000700` are applied to `Uni Lost-Found` (`jdaertuqzbgfdnnpranl`, production/main environment). The Phase 1 probe function, RPCs, private counter, and browser runner are retired. Real Auth helper/hook and shared image sanitizer remain. Report/photo code and schemas are implemented and deployed; no Phase 2 browser walk-through with real users has yet been recorded.
+The Phase 1 migration-history reconciliation is complete. Versions `20261114000100` and `20261114000200` were verified against hosted objects and marked applied in history without replaying their SQL. Migrations `20261114000300`–`20261114000700` are applied to `Uni Lost-Found` (`jdaertuqzbgfdnnpranl`, production/main environment). The Phase 1 probe function, RPCs, private counter, and browser runner are retired. Real Auth helper/hook and shared image sanitizer remain. The reporting and photo flows are deployed. On 2026-11-18, after the photo upload fix, the owner confirmed the Phase 2 exit checks passed and requested closure. The owner provided an overall result. Individual walkthrough results and concurrency logs were unavailable.
 
 ## Implemented behavior and decisions
 
@@ -21,8 +21,6 @@ The Phase 1 migration-history reconciliation is complete. Versions `202611140001
 - General reports accept up to three JPEG/PNG uploads per listing. `report-photo` checks the JWT and current Ashoka membership, streams at most 5 MiB into the sanitizer, removes source metadata, resizes/re-encodes to JPEG (maximum 500 KB), stores in a private bucket, and records metadata. Signed image URLs are requested on demand and expire after 60 seconds. Owners can remove photos from open reports. Object paths contain report ID and random object ID only; migration 007 removed reporter UUIDs from paths before any production photos existed.
 - Per-user mutations take the same transaction advisory lock derived from caller UUID. This serializes create/edit/close/photo registration/removal paths. Claims that reserve found reports in Phase 3 must use this lock before changing statuses.
 - Product-visible identity remains private. Base report/photo tables are inaccessible to anon/authenticated direct selects. Directory and owner functions return explicit JSON projections; neither includes owner UUID, account email, or Auth identity. ID/key fields are the deliberate campus-visible exception.
-
-Still pending: a real eligible-account and third-user walkthrough; live Storage read/write/delete attempts; actual two-session simultaneous quota proof; 360 px/mobile, keyboard and assistive-label review; broader category/date filters; full-sized image runtime/resource checks; verification of the deployed frontend with the remote Edge Function. No Phase 3 claim behavior is implemented.
 
 ## File and component map
 
@@ -72,19 +70,27 @@ Storage policies call member-checked helpers: eligible members may read photos f
 
 ### Deployment configuration
 
-`supabase/config.toml` targets PostgreSQL 17, disables Email signup, retains Google and the Auth hook, and enables `report-photo` with JWT verification. Edge default CORS allows only `http://localhost:5173`; production Pages needs `PHASE2_ALLOWED_ORIGIN` set before browser uploads are used there. Supabase supplies `SUPABASE_URL`/`SUPABASE_ANON_KEY`; no privileged key is configured in the frontend or function.
+`supabase/config.toml` targets PostgreSQL 17, disables Email signup, retains Google and the Auth hook, and enables `report-photo` with JWT verification. On 2026-11-18, hosted `PHASE2_ALLOWED_ORIGIN` was set to `https://foundry-ashoka.vercel.app`. The endpoint now accepts browser photo requests from that live origin. Its source default remains localhost, but the hosted override means local photo requests need the variable changed or a local Edge runtime. Supabase supplies `SUPABASE_URL`/`SUPABASE_ANON_KEY`; no privileged key is configured in the frontend or function.
+
+Hosted Auth `site_url` is `https://foundry-ashoka.vercel.app`; redirects allow that exact origin and `http://localhost:5173/**`. Apply URL-only updates through `deploy/phase2-auth/supabase/config.toml` using `supabase config diff/push --remote=jdaertuqzbgfdnnpranl --workdir deploy/phase2-auth`. Only the two declared URL fields were pushed; Google provider secrets and the real signup hook were preserved. The main config retains its localhost Site URL for local-stack use and includes the Vercel origin in its redirect list.
 
 ## Local setup and deployment state
 
 | Resource | Local / remote state | How to reproduce or inspect safely |
 |---|---|---|
-| Local path/branch | `/Users/ronit/Lost-and-Found`, `main`; all project files remain untracked; no commit/remote. | `git status --short --branch` |
+| Local path/branch | `/Users/ronit/Lost-and-Found`, `main`, base commit `c3aef95971494f585536323592f4a243dd2ec949`; GitHub remote `https://github.com/Ronit-Serva/Lost-and-Found.git`. Hosting, photo upload, configuration, and documentation changes from 2026-11-18 are uncommitted. | `git status --short --branch` |
 | Node/dependencies | Node 22 selected by `.nvmrc`; npm lock; Supabase CLI 3.1.0; Deno lock in `supabase/functions/deno.lock`. | `npm ci`; `npm run build` |
 | Environment | `.env.local` names: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; values omitted. Edge platform vars are managed by Supabase. | Never print `.env.local`; use only the public values in browser config. |
 | Migration history | Remote versions `20261114000100` through `20261114000700` are applied. First two were repaired as applied after remote SQL inspection; no migration SQL was replayed for them. | `npx supabase migration list --remote=jdaertuqzbgfdnnpranl` |
-| Hosted DB | `Uni Lost-Found`, ref `jdaertuqzbgfdnnpranl`, ap-south-1, PostgreSQL 17.11. Report/photo tables and private bucket exist. Probe table and RPCs are absent. Report and photo object counts were zero at last check. | Use `npx supabase db query --remote=jdaertuqzbgfdnnpranl --read-only "..."` for read-only inventory. |
-| Edge functions | `report-photo` active, version 2, JWT verification enabled. `phase1-check` deleted. Anonymous invocation returned HTTP 401. | `npx supabase functions list --remote=jdaertuqzbgfdnnpranl` |
-| Frontend/hosting/CI | Local Vite dashboard only. Cloudflare Pages and GitHub-hosted CI not configured/run. | `npm run dev`; preserve existing `.env.local`. |
+| Hosted DB | `Uni Lost-Found`, ref `jdaertuqzbgfdnnpranl`, ap-south-1, PostgreSQL 17.11. Report/photo tables and private bucket exist. Probe table and RPCs are absent. The initial deployment inventory found zero reports and photos on 2026-11-14. | Use `npx supabase db query --remote=jdaertuqzbgfdnnpranl --read-only "..."` for read-only inventory. |
+| Edge functions | `report-photo` active, version 5, JWT verification enabled. `phase1-check` deleted. Anonymous invocation returned HTTP 401. | `npx supabase functions list --remote=jdaertuqzbgfdnnpranl` |
+| Frontend/hosting/CI | Vercel Hobby project `foundry-ashoka`, id `prj_uy7fiRxzkyHmsAuKKWKM8fSNaiEG`, team `no-sl-op`; live https://foundry-ashoka.vercel.app. Node 22 selected; Vite build, `dist`, SPA fallback in `vercel.json`. CLI deployment; automatic GitHub linking failed because the Vercel account needs a GitHub Login Connection. GitHub CI status was not checked in this session. | `vercel deploy --prod`; `.vercel/project.json` is ignored; preserve `.env.local`. |
+
+The owner explicitly selected Vercel on 2026-11-18, replacing the original Cloudflare Pages choice. The Vercel project has no extra deployment-authentication gate so testers reach the Ashoka login directly. Only the public Supabase URL/key are configured as Vite build variables. `.vercelignore` excludes `.env*`, backend source, local dependencies and output, test files, and docs from frontend uploads. Vercel CLI link added an ignored `VERCEL_OIDC_TOKEN` to `.env.local`; the existing public Supabase values remain present and no token was printed or committed.
+
+See [live testing instructions](../phase2-live-testing.md) and [sanitized deployment evidence](../evidence/phase2-deployment-2026-11-18.json). The owner subsequently accepted Phase 2. The MVP release gate remains ahead.
+
+Current production deployment: `dpl_HGfZP2TpSJYdVnRhCJSjZ2GgLJ6A`, state `READY`, Node `22.x`. Use `https://foundry-ashoka.vercel.app`. The initial deployment verified a Google authorize redirect and zero declared Auth URL config changes. The photo upload fix on 2026-11-18 adds `apikey` and `x-client-info` to the allowed browser request headers and supplies the active session's bearer token explicitly. A live preflight with all five request headers returned 204 for the exact Vercel origin, and an anonymous upload POST returned 401. Eight local Edge tests pass, including the new preflight regression test. Owner acceptance followed this fix. The agent verified the live preflight and anonymous denial. Owners can retry a failed upload through My Listings → Edit on the saved report.
 
 Existing configured remote already has Auth provider/hook setup per Phase 1. Do not reapply 00100/00200 or use `db reset` on the shared project. New migration changes use `npx supabase db push --remote=jdaertuqzbgfdnnpranl`. Review `--dry-run` first.
 
@@ -108,41 +114,33 @@ npx supabase migration list --remote=jdaertuqzbgfdnnpranl
 | Probe retirement and report deployment | `npx supabase db push --remote=jdaertuqzbgfdnnpranl --yes`; `npx supabase functions delete phase1-check --remote=jdaertuqzbgfdnnpranl --yes` | Applied 00300/00400; deleted probe function. |
 | Photo storage deployment | `npx supabase db push --remote=jdaertuqzbgfdnnpranl --yes`; `npx supabase functions deploy report-photo --remote=jdaertuqzbgfdnnpranl --use-api --yes` | Applied 00500/00600; deployed `report-photo` version 1 with JWT enabled. |
 | Photo path privacy correction | `npx supabase db push --remote=jdaertuqzbgfdnnpranl --yes`; redeploy `report-photo` | Applied 00700 and deployed version 2 before any photos existed; path no longer includes reporter UUID. |
-| Remote inventory | `npx supabase migration list`, `functions list`, read-only grants/bucket/policy query | Versions through 00700 applied; report/photo tables exist; counts 0; bucket private; three Storage policies; no direct table SELECT grants; no probe table/RPC. |
+| Remote inventory | `npx supabase migration list`, `functions list`, read-only grants/bucket/policy query | Initial 2026-11-14 inventory showed versions through 00700 applied, report/photo tables present with zero rows, bucket private; three Storage policies; no direct table SELECT grants; no probe table/RPC. |
 | Database/auth/security synthetic tests | `npm run test:db` | Eight tests pass in PGlite/pgvector with synthetic identities. Includes exact domain/provider gates, table/API isolation, mixed-section lost quota and close slot release, safe directory projection, immutable/specialized shape, photo quota. Not a real hosted identity or two-connection race test. |
-| Edge/image tests | `npm run check:edge && npm run test:edge` | Deno type-check passes; seven tests pass for image constraints/metadata and auth/member/origin/error/upload/cleanup handler behavior. Storage and Auth SDK dependencies are mocked. |
+| Edge/image tests | `npm run check:edge && npm run test:edge` | Deno type-check passes. Eight tests cover image constraints, metadata removal, authorization, upload, cleanup, and the browser preflight regression. Storage and Auth SDK dependencies are mocked. |
 | Frontend compile/build | `npm run build` | TypeScript and Vite production build pass. |
 | Lint | `npm run lint` | Passed with no warnings after adjusting the initial remote-data effect. |
-| Live user flow | Eligible owner + peer + outsider account browser walkthrough | Pending; no real Phase 2 listing/photo data was created or tested in this session. |
-| Quota race | Two simultaneous authenticated create calls with caller at two active reports | Lock design implemented; live concurrent proof pending. |
-| Mobile/keyboard | Browser at 360 px, keyboard-only forms/navigation and visible focus | Pending. |
+| Live deployment | Vercel production deployment; anonymous HTTPS fetch; Google authorize redirect; photo OPTIONS and anonymous POST | 2026-11-18: HTTPS app page HTTP 200, Google authorize HTTP 302 to accounts.google.com, photo preflight HTTP 204 with exact live origin, anonymous photo POST HTTP 401. See deployment evidence JSON. These HTTP checks cover the initial redirect and anonymous requests. |
+| Phase 2 exit acceptance | Owner confirmation in the conversation on 2026-11-18 after the photo upload fix | Owner reported that the exit checks passed. Individual browser, access, concurrency, and mobile/keyboard results were unavailable. |
 
-No photos or reports were inserted into the hosted database during this work. Phase 1 hosted evidence remains [here](../evidence/phase1-runtime-2026-11-14.json).
+The agent inserted no photos or reports during deployment and verification. Phase 1 hosted evidence remains [here](../evidence/phase1-runtime-2026-11-14.json).
 
 ## Known limitations, recovery, and maintenance
 
-- Phase 2 is not complete: live member/privacy checks, concurrent quotas, and accessibility/mobile checks are mandatory outstanding exits, not future-phase work.
-- General keyword search currently supports text search only. Additional filters and pagination need improvement before phase completion. Search caps at 100 rows.
-- Current hosted Edge origin is localhost. Set `PHASE2_ALLOWED_ORIGIN` to the Pages origin before deploying a frontend that uploads photos there; do not broaden it to `*`.
+- General keyword search currently supports text search only. Results are capped at 100 rows. Additional filters and pagination remain possible improvements.
+- Current hosted Edge origin is `https://foundry-ashoka.vercel.app`. Use the stable production URL for testing; unique Vercel deployment/preview URLs are deliberately absent from Auth redirects and photo CORS. Localhost login still works, but hosted photo requests from localhost are rejected while this override is active.
 - A photo upload is an Edge call after report save. If an upload fails, the report remains saved and the UI invites retry by editing. Photo remove performs Storage deletion followed by metadata deletion; a split failure needs manual cleanup/reload.
-- Full-sized image CPU/memory, remote Storage policy behavior with real JWTs, and signed URL expiry/revocation have not been measured. A downloaded image cannot be recalled.
+- Detailed measurements for full-size photos, signed URL expiry, and direct Storage access with live sessions are unavailable. A downloaded image cannot be recalled.
 - Report quotas are enforced in the create RPC with a per-user advisory lock. Phase 3 status changes that move found reports to/from `reserved` must acquire the same lock so reserved reports continue to count.
 - Specialized string matching normalization and exact matching belong to Phase 4; current directory search is substring `ILIKE`, not that matching feature.
-- No listing/report test has yet run through a real browser session; the hosted Auth provider state remains as documented in Phase 1.
 
 ## Next agent: start here
 
-1. Read the constitution, this checkpoint, and Phase 1 handoff. Confirm `git status`; preserve the untracked project files and `.env.local`.
-2. Run `npm ci`, `npm run dev`, sign in with an eligible account, and exercise all three sections: create/edit/search/close, each quota count, general found withheld-detail prompt, photo upload, temporary view, and photo removal.
-3. Using an eligible peer and ineligible/anonymous session, verify default directory visibility, no owner identity, safe ID/key fields only, and Storage read/write/delete denial. Record exact results without storing personal details.
-4. Prove two concurrent create calls from a member at two active lost (then found) reports permit exactly one success. Use isolated synthetic accounts/data and clean up safely.
-5. Check 360 px layout, keyboard navigation/focus/labels, loading/error/quota states; fix defects and rerun local checks.
-6. Complete the Phase 2 handoff, roadmap, and index with real evidence before Phase 3. Outstanding user input: none currently; production URL is needed before configuring production CORS/hosting in Phase 5.
+1. Read the constitution and this handoff. Inspect the working tree and hosted migration history, preserving the existing work and local environment.
+2. Create the Phase 3 handoff from the shared template. Start with claim submission, anonymous references, and access to private evidence for the claimant and finder. Reject duplicate claims and self-claims.
+3. Reuse the report ownership rules and per-user advisory lock when implementing found-item reservation. Keep release validation in the Phase 5 roadmap.
 
 ## Phase completion gate
 
-- [ ] Roadmap Phase 2 exit checks are met with live browser and concurrency evidence.
-- [ ] Implemented behavior, files, contracts, security, setup/deployment, and recovery are documented accurately.
-- [ ] Hosted/local resource state and uncommitted/untracked work are recorded.
-- [ ] Constitution, roadmap, handoff index, and this record agree on current status and next action.
-- [ ] The next agent can resume without access to earlier chat history.
+- [x] Project owner confirmed the roadmap exit checks passed.
+- [x] Implementation, deployment, and verification sources are recorded.
+- [x] The constitution, roadmap, and handoff index record Phase 2 as complete and identify the Phase 3 starting point.

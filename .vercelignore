@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+node_modules
+dist
+supabase
+tests
+docs
+deploy
+tmp
+.openai
