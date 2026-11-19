@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import './App.css'
 import { WhatsAppInput } from './ReportContact.tsx'
-import { contactLink, useWhatsApp } from './lib/reportContact.ts'
+import { contactLink, phonePattern, useWhatsApp } from './lib/reportContact.ts'
 import type { ContactMethod } from './lib/reportContact.ts'
 import { supabase } from './lib/supabase.ts'
 
@@ -29,53 +29,83 @@ type Report = {
 }
 type AppProps = { email: string; onSignOut: () => void }
 type ReportDraft = { edit: Report | null; section: ActiveSection; kind: ReportKind }
-type ReportResult = { reports: Report[]; loading: boolean; error: boolean }
-const initialResult: ReportResult = { reports: [], loading: true, error: false }
+type ReportResult = { reports: Report[]; loading: boolean; error: string }
+const initialResult: ReportResult = { reports: [], loading: true, error: '' }
+const directoryPageSize = 15
+const historyPageSize = 25
+const directoryRefreshMs = 30_000
 
 type ReportQuery = { p_section: ActiveSection; p_kind: ReportKind; p_query: string }
 
-function useReports(version: number, query?: ReportQuery) {
+function useReports(version: number, offset: number, enabled: boolean, query?: ReportQuery) {
   const [result, setResult] = useState<(ReportResult & { key: string }) | null>(null)
   const section = query?.p_section
   const kind = query?.p_kind
   const term = query?.p_query
-  const key = JSON.stringify([section, kind, term, version])
+  const key = JSON.stringify([section, kind, term, version, offset])
 
   useEffect(() => {
     const client = supabase
-    if (!client) return
+    if (!client || !enabled) return
     const controller = new AbortController()
     const request = section && kind
-      ? client.rpc('directory_reports', { p_section: section, p_kind: kind, p_query: term })
-      : client.rpc('list_my_reports')
+      ? client.rpc('directory_reports', { p_section: section, p_kind: kind, p_query: term, p_offset: offset })
+      : client.rpc('list_my_reports', { p_closed_offset: offset })
 
     void (async () => {
       const { data, error } = await request.abortSignal(controller.signal)
       if (controller.signal.aborted) return
-      setResult({ key, reports: (data ?? []) as Report[], loading: false, error: Boolean(error) })
+      setResult({ key, reports: (data ?? []) as Report[], loading: false, error: error?.code || (error ? 'unknown' : '') })
     })()
     return () => controller.abort()
-  }, [key, kind, section, term])
+  }, [enabled, key, kind, offset, section, term])
 
   return result?.key === key ? result : initialResult
+}
+
+function ListingPages({ offset, size, hasNext, label, onPage }: {
+  offset: number; size: number; hasNext: boolean; label: string; onPage: (offset: number) => void
+}) {
+  if (!offset && !hasNext) return null
+  return (
+    <nav className="listing-pages" aria-label={label}>
+      <button className="outline-button" disabled={!offset} onClick={() => onPage(offset - size)}>Previous</button>
+      <span>Page {Math.floor(offset / size) + 1}</span>
+      <button className="outline-button" disabled={!hasNext} onClick={() => onPage(offset + size)}>Next</button>
+    </nav>
+  )
+}
+
+function CampusItems() {
+  return (
+    <div className="campus-items" aria-hidden="true">
+      <div className="campus-id">
+        <span className="id-slot" />
+        <span className="id-photo" />
+        <span className="id-lines" />
+      </div>
+      <div className="campus-key"><span /></div>
+    </div>
+  )
 }
 
 export function SignInScreen({ configured, error, loading, onSignIn }: { configured: boolean; error: string; loading: boolean; onSignIn: () => void }) {
   return (
     <main className="auth-page">
-      <section className="auth-card">
-        <a className="brand auth-brand" href="#home"><span className="brand-mark">f</span><span>foundry<span className="brand-dot">.</span></span></a>
-        <div className="auth-eyebrow">ASHOKA UNIVERSITY · LOST &amp; FOUND</div>
-        <h1>Find your way<br /><em>back to what matters.</em></h1>
-        <p>Sign in with your Ashoka Google account to browse and post lost or found ID cards and room keys.</p>
-        {error && <div className="auth-error" role="alert">{error}</div>}
-        {!configured && <div className="auth-error" role="alert">Supabase is not configured. Add the project URL and publishable key to <code>.env.local</code>, then restart the dev server.</div>}
-        <button className="google-button" disabled={!configured || loading} onClick={onSignIn}>
-          <span className="google-g" aria-hidden="true">G</span>{loading ? 'Opening Google…' : 'Continue with Google'}
-        </button>
-        <div className="auth-note">Use your <strong>@ashoka.edu.in</strong> account. Only university members can access listings.</div>
+      <section className="auth-card auth-landing">
+        <div className="auth-copy">
+          <div className="brand auth-brand"><span className="brand-mark" aria-hidden="true">f</span><span>foundry<span className="brand-dot">.</span></span></div>
+          <h1>Lost &amp; found at Ashoka</h1>
+          <p>Find a missing ID card or room key, or post one you picked up on campus.</p>
+          {error && <div className="auth-error" role="alert">{error}</div>}
+          {!configured && <div className="auth-error" role="alert">Supabase is not configured. Add the project URL and publishable key to <code>.env.local</code>, then restart the dev server.</div>}
+          <button className="google-button" disabled={!configured || loading} onClick={onSignIn}>
+            <span className="google-g" aria-hidden="true">G</span>{loading ? 'Opening Google…' : 'Continue with Google'}
+          </button>
+          <p className="auth-note">Use your <strong>@ashoka.edu.in</strong> account.</p>
+        </div>
+        <CampusItems />
       </section>
-      <div className="auth-footer">A little lost, a little found. <span>·</span> Foundry</div>
     </main>
   )
 }
@@ -85,21 +115,53 @@ function App({ email, onSignOut }: AppProps) {
   const [kind, setKind] = useState<ReportKind>('lost')
   const [view, setView] = useState<'discover' | 'mine'>('discover')
   const [query, setQuery] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [directoryOffset, setDirectoryOffset] = useState(0)
+  const [historyOffset, setHistoryOffset] = useState(0)
+  const [directoryVersion, setDirectoryVersion] = useState(0)
   const [version, setVersion] = useState(0)
   const [notice, setNotice] = useState('')
   const [actionError, setActionError] = useState('')
   const [draft, setDraft] = useState<ReportDraft | null>(null)
   const [settings, setSettings] = useState(false)
   const [closing, setClosing] = useState<string | null>(null)
+  const directoryHeading = useRef<HTMLHeadingElement>(null)
   const listingsHeading = useRef<HTMLHeadingElement>(null)
   const focusListings = useRef(false)
   const activeSection = section === 'general' ? 'id_card' : section
-
-  const directory = useReports(version, { p_section: activeSection, p_kind: kind, p_query: query.trim() })
-  const mine = useReports(version)
+  const viewingDirectory = view === 'discover' && section !== 'general'
+  const searchPending = query.trim() !== searchTerm
+  const directory = useReports(version + directoryVersion, directoryOffset, viewingDirectory && !searchPending, {
+    p_section: activeSection, p_kind: kind, p_query: searchTerm,
+  })
+  const mine = useReports(version, historyOffset, view === 'mine')
   const isActiveReport = (report: Report) => report.status === 'open' || report.status === 'reserved'
   const lostCount = mine.reports.filter((report) => report.kind === 'lost' && isActiveReport(report)).length
   const foundCount = mine.reports.filter((report) => report.kind === 'found' && isActiveReport(report)).length
+  const closedCount = mine.reports.length - lostCount - foundCount
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchTerm(query.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [query])
+
+  useEffect(() => {
+    if (!viewingDirectory) return
+    let lastRefresh = 0
+    function refreshVisibleDirectory() {
+      if (document.visibilityState !== 'visible' || Date.now() - lastRefresh < 1000) return
+      lastRefresh = Date.now()
+      setDirectoryVersion((current) => current + 1)
+    }
+    const timer = window.setInterval(refreshVisibleDirectory, directoryRefreshMs)
+    window.addEventListener('focus', refreshVisibleDirectory)
+    document.addEventListener('visibilitychange', refreshVisibleDirectory)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshVisibleDirectory)
+      document.removeEventListener('visibilitychange', refreshVisibleDirectory)
+    }
+  }, [viewingDirectory])
 
   useEffect(() => {
     if (view === 'mine' && focusListings.current) {
@@ -113,6 +175,8 @@ function App({ email, onSignOut }: AppProps) {
   }
 
   function switchView(next: 'discover' | 'mine') {
+    if (next === 'discover' && view !== next) setDirectoryVersion((current) => current + 1)
+    if (next === 'mine' && view !== next) reload()
     setView(next)
     setNotice('')
     setActionError('')
@@ -142,45 +206,40 @@ function App({ email, onSignOut }: AppProps) {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="#home" aria-label="Foundry home" onClick={() => switchView('discover')}>
-          <span className="brand-mark">f</span><span>foundry<span className="brand-dot">.</span></span>
-        </a>
-        <div className="campus-label">ASHOKA UNIVERSITY</div>
-        <nav className="primary-nav" aria-label="Main navigation">
-          <button className={`nav-link ${view === 'discover' ? 'active' : ''}`} aria-label="Discover" onClick={() => switchView('discover')}>
-            <span aria-hidden="true">⌕</span> Discover
-          </button>
-          <button className={`nav-link ${view === 'mine' ? 'active' : ''}`} aria-label="My listings" onClick={() => switchView('mine')}>
-            <span aria-hidden="true">▤</span> My listings
-          </button>
-          <button className="nav-link" aria-label="Contact settings" onClick={() => setSettings(true)}>
-            <span aria-hidden="true">⚙</span> Contact settings
-          </button>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="profile">
-            <div className="avatar">{email.slice(0, 1).toUpperCase()}</div>
-            <div className="profile-text"><strong>Ashoka member</strong><span>{email}</span></div>
-          </div>
+      <header className="site-header">
+        <div className="site-header-inner">
+          <a className="brand" href="#home" aria-label="Foundry home" onClick={() => switchView('discover')}>
+            <span className="brand-mark" aria-hidden="true">f</span><span>foundry<span className="brand-dot">.</span></span>
+          </a>
+          <nav className="primary-nav" aria-label="Main navigation">
+            <button className={`nav-link ${view === 'discover' ? 'active' : ''}`} aria-current={view === 'discover' ? 'page' : undefined} onClick={() => switchView('discover')}>
+              Discover
+            </button>
+            <button className={`nav-link ${view === 'mine' ? 'active' : ''}`} aria-current={view === 'mine' ? 'page' : undefined} onClick={() => switchView('mine')}>
+              My listings
+            </button>
+            <button className="nav-link" onClick={() => setSettings(true)}>
+              Contact settings
+            </button>
+          </nav>
+          <button className="signout-button" onClick={onSignOut}>Sign out</button>
         </div>
-      </aside>
+      </header>
 
       <section className="main-panel">
-        <header className="topbar">
-          <div className="breadcrumb">Campus services <span>/</span> <strong>Lost &amp; found</strong></div>
-          <div className="top-actions"><span className="signed-in-email">{email}</span><button className="signout-button" onClick={onSignOut}>Sign out</button></div>
-        </header>
         <div className="content">
           {view === 'discover' ? (
             <>
               <section className="welcome-row">
-                <div><h1>Lost something?<br /><em>Let’s bring it home.</em></h1><p className="intro">Browse lost and found ID cards and room keys, or post a report.</p></div>
-                <div className="welcome-art" aria-hidden="true"><div className="art-sun" /><div className="art-card card-one">✳</div><div className="art-card card-two">↗</div><div className="art-ring" /></div>
+                <div className="welcome-copy">
+                  <h1>Lost &amp; found at Ashoka</h1>
+                  <p className="intro">Look up a missing ID card or room key, or post one you’ve found.</p>
+                </div>
+                <CampusItems />
               </section>
               <section className="directory-section" aria-labelledby="browse-title">
                 <div className="directory-heading">
-                  <h2 id="browse-title">{section === 'general' ? 'General items' : `Browse ${kind} items`}</h2>
+                  <h2 id="browse-title" ref={directoryHeading} tabIndex={-1}>{section === 'general' ? 'General items' : `Browse ${kind} items`}</h2>
                   <button className="report-button" onClick={startCreate}>＋ Report an item</button>
                 </div>
                 <div className="category-tabs" role="group" aria-label="Item category">
@@ -189,7 +248,7 @@ function App({ email, onSignOut }: AppProps) {
                       key={item}
                       aria-pressed={section === item}
                       className={section === item ? 'category-tab active-tab' : 'category-tab'}
-                      onClick={() => { if (section !== item) { setSection(item); setQuery('') } }}
+                      onClick={() => { if (section !== item) { setSection(item); setQuery(''); setSearchTerm(''); setDirectoryOffset(0); setDirectoryVersion((current) => current + 1) } }}
                     >
                       {sectionLabels[item]}{item === 'general' && <span className="upcoming-label">Upcoming</span>}
                     </button>
@@ -206,21 +265,21 @@ function App({ email, onSignOut }: AppProps) {
                           type="search"
                           value={query}
                           maxLength={120}
-                          onChange={(event) => setQuery(event.target.value)}
-                          placeholder={section === 'id_card' ? 'Search name, roll number, or ID number' : 'Search room number or holder name'}
+                          onChange={(event) => { setQuery(event.target.value); setDirectoryOffset(0) }}
+                          placeholder={section === 'id_card' ? 'Name, roll number or ID' : 'Room number or holder name'}
                           aria-label="Search reports"
                         />
                       </label>
                       <div className="search-controls">
                         <div className="segmented" role="group" aria-label="Report type">
                           {(['lost', 'found'] as const).map((option) => (
-                            <button key={option} className={kind === option ? 'selected' : ''} aria-pressed={kind === option} onClick={() => setKind(option)}>{option === 'lost' ? 'Lost' : 'Found'}</button>
+                            <button key={option} className={kind === option ? 'selected' : ''} aria-pressed={kind === option} onClick={() => { if (kind !== option) { setKind(option); setDirectoryOffset(0) } }}>{option === 'lost' ? 'Lost' : 'Found'}</button>
                           ))}
                         </div>
                       </div>
                     </div>
-                    {directory.loading ? <p role="status">Loading reports…</p> : directory.error ? (
-                      <p className="auth-error" role="alert">Could not load reports. <button className="outline-button" onClick={reload}>Retry</button></p>
+                    {searchPending || directory.loading ? <p role="status">Loading reports…</p> : directory.error ? (
+                      <p className="auth-error" role="alert">{directory.error === 'PT429' ? 'Too many searches. Try again shortly.' : 'Could not load reports.'} <button className="outline-button" onClick={reload}>Retry</button></p>
                     ) : directory.reports.length ? (
                       <div className="report-grid">{directory.reports.map((report) => <ReportCard key={report.id} report={report} />)}</div>
                     ) : (
@@ -229,6 +288,9 @@ function App({ email, onSignOut }: AppProps) {
                         <button className="outline-button" onClick={startCreate}>＋ Post a {kind} item</button>
                       </div>
                     )}
+                    <ListingPages offset={directoryOffset} size={directoryPageSize} label="Discovery pages"
+                      hasNext={!searchPending && directory.reports.length === directoryPageSize && directoryOffset + directoryPageSize <= 10000}
+                      onPage={(offset) => { setDirectoryOffset(offset); directoryHeading.current?.focus() }} />
                   </>
                 )}
               </section>
@@ -259,10 +321,12 @@ function App({ email, onSignOut }: AppProps) {
                     onClose={(returned) => void closeReport(report, returned)}
                   />
                 ))}</div>
-              ) : <div className="empty-state"><h3>No listings yet</h3><p>Reports you create will appear here.</p></div>}
+              ) : <div className="empty-state"><h3>{historyOffset ? 'No more closed listings' : 'No listings yet'}</h3><p>{historyOffset ? 'Use Previous to go back.' : 'Reports you create will appear here.'}</p></div>}
+              <ListingPages offset={historyOffset} size={historyPageSize} label="Closed listing pages"
+                hasNext={closedCount === historyPageSize}
+                onPage={(offset) => { setHistoryOffset(offset); listingsHeading.current?.focus() }} />
             </section>
           )}
-          <footer className="footer-note"><span>Foundry <b>·</b> Ashoka University</span></footer>
         </div>
       </section>
       {draft && (
@@ -353,8 +417,9 @@ function ListingForm({ draft, email, onClose, onSaved }: {
     }
 
     setSaving(true)
-    if (method === 'whatsapp' && (phone.loading || phone.error || !await phone.save())) {
-      setError('Could not save your WhatsApp number. Check the number and try again.')
+    const whatsappNumber = phone.number.trim()
+    if (method === 'whatsapp' && (phone.loading || phone.error || !phonePattern.test(whatsappNumber))) {
+      setError('Enter a valid international WhatsApp number.')
       setSaving(false)
       return
     }
@@ -362,15 +427,19 @@ function ListingForm({ draft, email, onClose, onSaved }: {
     const fields = section === 'id_card'
       ? { cardholder_name: cardholder.trim(), roll_number: roll.trim(), id_number: number.trim() }
       : { room_number: room.trim(), holder_name: holder.trim() }
-    const contact = { ...fields, contact_method: method }
+    const contact = {
+      ...fields,
+      contact_method: method,
+      ...(method === 'whatsapp' && whatsappNumber !== phone.saved ? { whatsapp_number: whatsappNumber } : {}),
+    }
     const { error: resultError } = draft.edit
       ? await supabase.rpc('edit_report', { p_report_id: draft.edit.id, p_data: contact })
       : await supabase.rpc('create_report', { p_data: { ...contact, kind, section } })
     if (resultError) {
       setSaving(false)
-      setError(resultError.message.includes('Active report limit')
-        ? `You already have 3 active ${kind} reports. Close one from My listings to make room.`
-        : 'Report could not be saved. Check the fields and try again.')
+      if (resultError.code === 'PT429') setError('You’ve reached the daily posting limit. Try again later.')
+      else if (resultError.message.includes('Active report limit')) setError(`You already have 3 active ${kind} reports. Close one from My listings to make room.`)
+      else setError('Report could not be saved. Check the fields and try again.')
       return
     }
 

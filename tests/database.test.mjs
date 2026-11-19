@@ -321,9 +321,9 @@ describe('specialized MVP migration', () => {
   const edit = (id, fields) => db.query('select public.edit_report($1, $2::jsonb)', [id, JSON.stringify(fields)])
   const saveWhatsApp = (number) => db.query('select public.set_my_whatsapp($1)', [number])
   const myWhatsApp = async () => (await db.query('select public.get_my_whatsapp() as number')).rows[0].number
-  const listings = async () => (await db.query('select public.list_my_reports() as reports')).rows[0].reports
-  const directory = async (section, kind, term = '') => (
-    await db.query('select public.directory_reports($1, $2, $3) as reports', [section, kind, term])
+  const listings = async (offset = 0) => (await db.query('select public.list_my_reports($1) as reports', [offset])).rows[0].reports
+  const directory = async (section, kind, term = '', offset = 0) => (
+    await db.query('select public.directory_reports($1, $2, $3, $4) as reports', [section, kind, term, offset])
   ).rows[0].reports
 
   before(async () => {
@@ -335,6 +335,7 @@ describe('specialized MVP migration', () => {
     legacyGeneralId = await create(general('found', 'Legacy canvas bag'))
     await db.exec('reset role')
     await db.exec(await readFile(new URL('../supabase/migrations/20261119000200_specialized_mvp_contact.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261119000300_mvp_security.sql', import.meta.url), 'utf8'))
   })
 
   test('legacy specialized reports stay private until the owner opts in and share only verified email', async () => {
@@ -478,5 +479,84 @@ describe('specialized MVP migration', () => {
     assert.equal(report.contact_value, undefined)
     await asCaller(peerId)
     assert.deepEqual(await directory('id_card', 'found', 'MVP-001'), [])
+  })
+
+  test('WhatsApp profile changes roll back on quota and edit errors while successful saves share the selected channel', async () => {
+    await asCaller(ownerId)
+    const publishedId = await create(key('ATOMIC-001', { contact_method: 'whatsapp', whatsapp_number: phone }))
+    const secondId = await create(key('ATOMIC-002', { contact_method: 'email' }))
+    const thirdId = await create(key('ATOMIC-003', { contact_method: 'email' }))
+    await assert.rejects(create(key('ATOMIC-004', { contact_method: 'whatsapp', whatsapp_number: replacementPhone })), { code: 'P0001' })
+    await assert.rejects(edit(publishedId, { room_number: '', contact_method: 'whatsapp', whatsapp_number: replacementPhone }), { code: '23514' })
+    await assert.rejects(edit(secondId, { contact_method: 'email', whatsapp_number: replacementPhone }), { code: '22023' })
+    assert.equal(await myWhatsApp(), phone)
+    await asCaller(peerId)
+    assert.equal((await directory('room_key', 'lost', 'ATOMIC-001'))[0].contact_value, phone)
+    assert.equal((await directory('room_key', 'lost', 'ATOMIC-002'))[0].contact_value, ownerEmail)
+
+    await asCaller(ownerId)
+    await edit(publishedId, { contact_method: 'whatsapp', whatsapp_number: replacementPhone })
+    assert.equal(await myWhatsApp(), replacementPhone)
+    await asCaller(peerId)
+    assert.equal((await directory('room_key', 'lost', 'ATOMIC-001'))[0].contact_value, replacementPhone)
+    await asCaller(ownerId)
+    for (const id of [publishedId, secondId, thirdId]) await db.query('select public.close_report($1)', [id])
+    await saveWhatsApp(null)
+  })
+
+  test('report inputs are bounded on the server and closed history is paginated independently of quota', async () => {
+    await asCaller(ownerId)
+    for (const fields of [{ roll_number: '0'.repeat(81) }, { id_number: 101 }, { roll_number: { value: '101' } }]) {
+      await assert.rejects(create(card('VALID', { contact_method: 'email', ...fields })), { code: '22023' })
+    }
+    const identifier = '0'.repeat(80)
+    const activeId = await create(card(identifier, { contact_method: 'email' }))
+    await assert.rejects(edit(activeId, { id_number: '1'.repeat(81), contact_method: 'email' }), { code: '22023' })
+    const closedIds = await (async () => {
+      await db.exec('reset role')
+      return (await db.query(`
+        insert into public.reports (owner_id, kind, section, status, title, roll_number, contact_method)
+        select $1, 'found', 'id_card', 'returned', 'History fixture', 'H-' || i, 'email'
+        from generate_series(1, 30) i returning id
+      `, [ownerId])).rows.map(({ id }) => id)
+    })()
+    await asCaller(ownerId)
+    const first = await listings()
+    const second = await listings(25)
+    assert.equal(first.filter(({ status }) => status !== 'open').length, 25)
+    assert.ok(second.some(({ id }) => closedIds.includes(id)))
+    assert.equal(first.find(({ id }) => id === activeId).roll_number, identifier)
+    assert.ok(second.some(({ id }) => id === activeId))
+    assert.equal(second.some(({ id, status }) => status !== 'open' && first.some((row) => row.id === id)), false)
+    await assert.rejects(create(card('DAILY-001', { contact_method: 'email' })), { code: 'PT429' })
+  })
+
+  test('directory caps results per page and throttles each eligible member independently', async () => {
+    await db.exec('reset role')
+    await db.query(`
+      insert into public.reports (owner_id, kind, section, status, title, roll_number, contact_method)
+      select $1, 'lost', 'id_card', 'open', 'Page fixture', 'PAGE-' || i, 'email'
+      from generate_series(1, 16) i
+    `, [ownerId])
+    await asCaller(peerId)
+    const first = await directory('id_card', 'lost', 'PAGE-')
+    const second = await directory('id_card', 'lost', 'PAGE-', 15)
+    assert.equal(first.length, 15)
+    assert.equal(second.length, 1)
+    assert.equal(first.some(({ id }) => id === second[0].id), false)
+    assert.ok(first.every(({ contact_value }) => contact_value === ownerEmail))
+    await assert.rejects(directory('id_card', 'lost', ' '.repeat(121)), { code: '22023' })
+    await assert.rejects(db.query('select * from private.directory_request_budget'), { code: '42501' })
+    await db.exec('reset role')
+    await db.query("update private.directory_request_budget set requests = 29, window_start = now() + interval '1 minute' where user_id = $1", [peerId])
+    await asCaller(peerId)
+    await directory('id_card', 'lost')
+    await assert.rejects(directory('room_key', 'found'), { code: 'PT429' })
+    await asCaller(unrelatedId)
+    assert.equal((await directory('id_card', 'lost', 'PAGE-')).length, 15)
+    await db.exec('reset role')
+    await db.query("update private.directory_request_budget set window_start = now() - interval '2 minutes' where user_id = $1", [peerId])
+    await asCaller(peerId)
+    assert.equal((await directory('id_card', 'lost', 'PAGE-')).length, 15)
   })
 })

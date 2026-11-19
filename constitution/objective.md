@@ -6,7 +6,7 @@ This branch serves Ashoka members who have lost or found an ID card or a room ke
 
 - Require the existing Google sign-in and a confirmed Ashoka email. Only eligible signed-in members can browse or search listings.
 - For each new lost or found listing, the poster chooses one contact method and sees who will be able to use it before publishing. Email uses the poster’s verified Ashoka address. WhatsApp uses a number the poster supplies, including its country code.
-- Saving a WhatsApp number is optional. Store it privately for reuse and let the member update it later. Saving a number alone does not authorize sharing it. A member who chooses email can publish without supplying a phone number.
+- A member who chooses email can publish without supplying a phone number. When a member enters a new WhatsApp number while publishing, save it privately for reuse only if the listing is saved successfully. Members can also manage their saved number in settings. Saving a number alone does not authorize sharing it.
 - Display the chosen contact on that open listing. Ownership identifiers, stored contact preferences and unselected contact details stay private. Listings created before contact selection was available require an explicit owner choice before returning to discovery.
 - Card names and printed numbers, and key holder names and room numbers, are campus-visible item identifiers. They cannot establish that a person contacting the poster owns the item.
 

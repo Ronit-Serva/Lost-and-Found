@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "audit:deps": "npm audit --audit-level=moderate && deno audit --level moderate --lock supabase/functions/deno.lock --frozen-lockfile",
     "check:edge": "deno check --config supabase/functions/deno.json --frozen supabase/functions/report-photo/index.ts supabase/functions/tests/image_test.ts supabase/functions/tests/report_photo_test.ts",
     "test": "npm run test:db && npm run test:edge",
     "test:db": "node --test tests/*.test.mjs",
