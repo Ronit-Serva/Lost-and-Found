@@ -103,6 +103,7 @@ export function SignInScreen({ configured, error, loading, onSignIn }: { configu
             <span className="google-g" aria-hidden="true">G</span>{loading ? 'Opening Google…' : 'Continue with Google'}
           </button>
           <p className="auth-note">Use your <strong>@ashoka.edu.in</strong> account.</p>
+          <a className="auth-privacy-link" href="/privacy">How Foundry handles your data</a>
         </div>
         <CampusItems />
       </section>

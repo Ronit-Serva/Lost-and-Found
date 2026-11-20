@@ -504,6 +504,16 @@
 .auth-copy h1 { margin-top: 1.6rem; }
 .auth-copy .google-button { margin-top: 1.2rem; }
 .auth-copy .auth-note { margin-top: 0.6rem; color: var(--muted); font-size: 0.85rem; }
+.auth-privacy-link {
+  display: inline-block;
+  margin-top: 0.9rem;
+  color: var(--violet);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
 
 .auth-landing .campus-items {
   --art-u: clamp(0.75rem, 1.8vw, 1.55rem);

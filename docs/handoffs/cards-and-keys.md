@@ -64,3 +64,9 @@ Lint, production build, Edge type checking, 19 database tests and eight Edge tes
 The live homepage and promoted JavaScript bundle returned HTTP 200. The homepage served CSP, HSTS, frame denial, MIME sniffing protection and the no-referrer policy. Supabase returned HTTP 401 to anonymous requests for discovery, listing history and the saved WhatsApp number. Google OAuth initiation redirected to `accounts.google.com`.
 
 The next task is the two-account hosted acceptance using synthetic cards, keys and contact values. Include rollback after a rejected post, contact refresh after closing a peer’s listing, and the completed Google sign-in callback under the CSP.
+
+## Public OAuth privacy-policy page
+
+On 2026-11-20, the branch added a public, unauthenticated privacy-policy route at `/privacy`. Vercel’s existing SPA rewrite serves it at [https://foundry-ashoka.vercel.app/privacy](https://foundry-ashoka.vercel.app/privacy) once the corresponding deployment is promoted. The sign-in screen and global creator footer link to it. Its statements match the MVP contract: Ashoka-account eligibility, campus-visible item fields, per-listing contact disclosure, private unselected contact information, closure behavior, and the absence of in-app messaging, claimant evidence, advertisements, WhatsApp ownership verification, or claimed university endorsement.
+
+The Google OAuth branding configuration should use that URL as its Privacy Policy URL. The account owner must provide and configure the real support/developer contact email in Google Auth Platform; no contact address is committed to source. Lint, TypeScript production build, and `git diff --check` passed before deployment.
